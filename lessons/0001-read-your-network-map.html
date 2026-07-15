@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1 — Read Your Network Map</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Lesson 1 · Networking foundations</p>
+  <h1>Read your own network map</h1>
+  <p class="lead">You sketched a home network before you had the words for it.
+  By the end of this lesson you'll be able to read every line of that diagram
+  aloud and explain <em>why</em> each layer exists — the foundation everything
+  else in this course sits on.</p>
+
+  <div class="meta">
+    <span>~10 min</span>
+    <span>Concepts-first</span>
+    <span>Win: explain your topology from memory</span>
+  </div>
+
+  <div class="callout">
+    <h3>Why this first</h3>
+    <p>Remote access, network-wide ad-blocking, and your media server all ride on
+    top of the network. It's also the area you flagged as newest to you. Nail the
+    map now and the rest of the mission gets much easier.</p>
+  </div>
+
+  <h2>The map you drew</h2>
+  <p>Here it is, colour-coded. <span class="tag wan">public / WAN side</span>
+  faces the internet; <span class="tag lan">private / LAN side</span> is your
+  home. Watch where the colour changes — that boundary is the whole point.</p>
+
+  <div class="netmap">
+    <div class="node wan">
+      <div class="n-title">Internet</div>
+      <div class="n-sub">The public world · reachable by anyone</div>
+    </div>
+    <div class="connector"></div>
+    <div class="node wan">
+      <div class="n-title">ISP router <span class="tag wan">public IP</span></div>
+      <div class="n-sub">Gets your one public IP · does NAT</div>
+    </div>
+    <div class="connector"></div>
+    <div class="node wan">
+      <div class="n-title">DMZ → 192.168.1.2</div>
+      <div class="n-sub">"Send all inbound traffic to this address"</div>
+    </div>
+    <div class="connector"></div>
+    <div class="node lan">
+      <div class="n-title">Flint 2 · WAN = 192.168.1.2</div>
+      <div class="n-sub">Your real router · the border of your world</div>
+    </div>
+    <div class="connector"></div>
+    <div class="node lan">
+      <div class="n-title">LAN: 192.168.10.0/24</div>
+      <div class="n-sub">Your private subnet · 254 device slots · one DHCP server</div>
+    </div>
+    <div class="connector"></div>
+    <div class="leaf-row">
+      <div class="leaf">PCs</div>
+      <div class="leaf">NAS <span style="font-weight:400">(storage)</span></div>
+      <div class="leaf">Smart devices</div>
+      <div class="leaf hi">WireGuard server<br><span style="font-weight:400">(the way home)</span></div>
+    </div>
+  </div>
+
+  <h2>Reading it, layer by layer</h2>
+
+  <h3>1. One public address, many private ones</h3>
+  <p>Your ISP gives your home a single <a href="../reference/networking-glossary.html#public-ip" class="term">public IP</a>
+  — one street address for the whole building. Inside, every device gets its own
+  <a href="../reference/networking-glossary.html#private-ip" class="term">private IP</a>
+  from the reserved <a href="../reference/networking-glossary.html#rfc1918" class="term">RFC1918</a>
+  ranges (yours are the <code>192.168.x.x</code> family). Private addresses can't
+  be reached from the internet directly — that's a feature, not a limitation.</p>
+
+  <h3>2. NAT: how one address serves many devices</h3>
+  <p>When your laptop asks for a web page, the router runs
+  <a href="../reference/networking-glossary.html#nat" class="term">NAT</a>: it
+  swaps your laptop's private "from" address for the public one, notes in a
+  ledger who asked, and sends it out. The reply comes back to the public IP, the
+  router checks its ledger, and hands it to your laptop. Every home router does
+  this. It's why "what's my IP" (public) differs from your device's
+  <code>192.168.…</code> (private).</p>
+
+  <h3>3. The subnet: <code>192.168.10.0/24</code></h3>
+  <p>The <a href="../reference/networking-glossary.html#mask" class="term">/24</a>
+  means the first three numbers are the <em>neighbourhood</em> and the last is the
+  <em>house</em>. So everything from <code>192.168.10.1</code> to
+  <code>192.168.10.254</code> lives on the same street and can talk directly;
+  anything else must go through the router (the
+  <a href="../reference/networking-glossary.html#gateway" class="term">gateway</a>,
+  usually <code>192.168.10.1</code>). Choosing <code>.10.</code> instead of the
+  default <code>.1.</code> or <code>.0.</code> is a small nicety: it avoids clashes
+  when you later connect two networks over a VPN.</p>
+
+  <h3>4. DHCP: addresses handed out automatically</h3>
+  <p><a href="../reference/networking-glossary.html#dhcp" class="term">DHCP</a> is
+  the service that gives each device an address as it joins. Your plan says the
+  Flint 2 is the <em>only</em> DHCP server — exactly right. Two DHCP servers on
+  one network fight over who assigns what and cause chaos. (For your NAS and
+  WireGuard box you'll later want a <a href="../reference/networking-glossary.html#static" class="term">reservation</a>
+  so their address never moves.)</p>
+
+  <div class="callout aha">
+    <h3>The "aha": double NAT, and why the DMZ line exists</h3>
+    <p>You have <em>two</em> routers doing NAT in series — the ISP router and the
+    Flint 2. That's <a href="../reference/networking-glossary.html#double-nat" class="term">double NAT</a>.
+    Browsing still works, but reaching <em>into</em> your network from outside (for
+    your WireGuard server) becomes a two-lock door: you'd have to open a path on
+    <em>both</em> routers.</p>
+    <p>Your fix: reserve <code>192.168.1.2</code> for the Flint 2 on the ISP
+    router, then set that router's <a href="../reference/networking-glossary.html#dmz" class="term">DMZ</a>
+    to <code>192.168.1.2</code>. "DMZ → this IP" means <em>forward all inbound
+    traffic to the Flint 2</em>. The ISP box becomes a dumb pipe; your Flint 2
+    becomes the single, real border you control. One lock instead of two.</p>
+    <p style="margin-bottom:0;">→ <a href="0001a-how-two-routers-chain.html"><b>Deep dive (Lesson 1a):</b></a>
+    what the Flint 2's WAN IP actually is, why it isn't a copy of the ISP router,
+    and why outbound traffic needs no rule at all.</p>
+  </div>
+
+  <div class="quiz-block">
+    <p class="kicker">Check yourself · recall, don't peek</p>
+
+    <div class="q" data-correctmsg="Yes — /24 = one private neighbourhood of 254 houses."
+                   data-wrongmsg="Re-read §3. /24 fixes the first three numbers; the last identifies up to 254 devices, all private.">
+      <p class="q-stem">1. What does <code>192.168.10.0/24</code> describe?</p>
+      <button class="opt">A public address block routable worldwide online</button>
+      <button class="opt">A single device's permanent static IP address</button>
+      <button class="opt" data-correct="true">A private subnet holding 254 usable addresses</button>
+      <button class="opt">A domain name the router resolves locally</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Right — one public IP, many private devices sharing it."
+                   data-wrongmsg="See §2. NAT lets many private devices share the single public IP; naming is DNS's job.">
+      <p class="q-stem">2. Why does a home router use NAT?</p>
+      <button class="opt">To translate domain names into numeric IP addresses</button>
+      <button class="opt">To assign each device its own public address</button>
+      <button class="opt">To encrypt all traffic leaving the home network</button>
+      <button class="opt" data-correct="true">To share one public IP among many devices</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Exactly — the DMZ hands the whole border to your Flint 2."
+                   data-wrongmsg="See the 'aha' box. Pointing the DMZ at the Flint 2 makes it the single border, defeating double NAT.">
+      <p class="q-stem">3. Why point the ISP router's DMZ at the Flint 2?</p>
+      <button class="opt">To block every inbound connection from the internet entirely</button>
+      <button class="opt" data-correct="true">To let the Flint 2 control all inbound traffic</button>
+      <button class="opt">To give each LAN device its own public address</button>
+      <button class="opt">To run a second DHCP server for redundancy</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Correct — one DHCP server only, to avoid conflicts."
+                   data-wrongmsg="See §4. Exactly one DHCP server per network; two would fight over assignments.">
+      <p class="q-stem">4. How many DHCP servers should this network run?</p>
+      <button class="opt">Two, for automatic failover and redundancy</button>
+      <button class="opt">One for every subnet segment present</button>
+      <button class="opt">None, since devices self-assign addresses</button>
+      <button class="opt" data-correct="true">Exactly one, to avoid address conflicts</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="source-box">
+    <p class="kicker">Read this next (primary source)</p>
+    <p><a href="https://thecybersecguru.com/networking/networking-basics-guide-2026/" target="_blank" rel="noopener">Networking Basics for Beginners (2026) — The CyberSec Guru</a>.
+    The single best beginner walk-through of public vs private IPs, DHCP, NAT,
+    ports, and DNS. Read the sections on <em>NAT</em> and <em>public vs private
+    IPs</em> — they reinforce exactly what this lesson covered.</p>
+  </div>
+
+  <div class="ask-teacher">
+    <b>I'm your teacher — ask me anything.</b> If any line of the map is still
+    fuzzy (What actually happens if I run two DHCP servers? Is the Flint 2's WAN
+    IP fixed or does it move? Should I use VLANs to separate smart devices?),
+    just ask in the chat. Follow-up questions are where the real learning happens.
+  </div>
+
+  <h2>Where your mission lives on this map</h2>
+  <p>Every goal is a place on the network (or storage) you can point to.
+  You are here on the path:</p>
+  <table class="course-map">
+    <tr><th>Mission goal</th><th>Lives at…</th><th>Covered in</th></tr>
+    <tr class="here"><td>Read your network map</td><td>ISP router → Flint 2 → LAN</td><td><a href="0001-read-your-network-map.html">Lesson 1 — Read your own network map</a></td></tr>
+    <tr><td>Understand the two-router chain</td><td>Flint WAN as guest; stateful NAT</td><td><a href="0001a-how-two-routers-chain.html">Lesson 1a — How two routers chain together</a></td></tr>
+    <tr><td>Reach homelab from outside</td><td>WireGuard + one port-forward</td><td><a href="0002-getting-home-from-outside.html">Lesson 2 — Getting home from outside</a></td></tr>
+    <tr><td>Block ads &amp; tracking</td><td>AdGuard Home DNS on the Flint 2</td><td><a href="0003-blocking-ads-network-wide.html">Lesson 3 — Blocking ads &amp; tracking network-wide</a></td></tr>
+    <tr><td>Store data reliably</td><td>3-2-1 backups + ZFS integrity</td><td><a href="0004-raid-is-not-a-backup.html">Lesson 4 — RAID is not a backup</a></td></tr>
+    <tr><td>Pick pool layout &amp; drives</td><td>ZFS vdevs (mirror / RAIDZ)</td><td>Lesson 5 — upcoming</td></tr>
+    <tr><td>Media center (*arr + Jellyfin)</td><td>Compute host on the LAN</td><td>later</td></tr>
+  </table>
+
+  <div class="lesson-nav">
+    <a href="../reference/networking-glossary.html">Glossary →</a>
+    <a href="0001a-how-two-routers-chain.html">Lesson 1a — How two routers chain together →</a>
+  </div>
+</div>
+</body>
+</html>

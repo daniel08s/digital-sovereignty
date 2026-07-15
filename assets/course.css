@@ -1,0 +1,260 @@
+/* Shared course stylesheet for the Digital Sovereignty teaching workspace.
+   Tufte-inspired: readable serif, generous margins, restrained palette.
+   Every lesson and reference doc links this file so the course looks unified.
+   Also tuned to print cleanly (see @media print at the end). */
+
+:root {
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --bg: #fffdf9;
+  --rule: #e2ddd2;
+  --accent: #7b4b2a;      /* warm brown, for links & headings */
+  --accent-soft: #f3ece1;
+  --ok: #2e7d32;
+  --no: #c0392b;
+  --code-bg: #f5f1e8;
+  --wan: #b5651d;          /* public / internet side */
+  --lan: #2e6f7e;          /* private / LAN side */
+  --maxw: 42rem;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 18px; }
+
+body {
+  margin: 0;
+  padding: 3rem 1.5rem 6rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: var(--maxw); margin: 0 auto; }
+
+/* ---- Typography ---- */
+h1, h2, h3 { line-height: 1.2; color: var(--ink); font-weight: 600; }
+h1 { font-size: 2.1rem; margin: 0 0 .3rem; letter-spacing: -.01em; }
+h2 { font-size: 1.4rem; margin: 2.6rem 0 .6rem; }
+h3 { font-size: 1.1rem; margin: 1.8rem 0 .4rem; color: var(--accent); }
+
+p, li { color: var(--ink); }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { text-decoration: none; }
+
+.kicker {
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: .72rem;
+  color: var(--ink-soft);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  margin: 0 0 .5rem;
+}
+
+.lead { font-size: 1.12rem; color: var(--ink-soft); }
+
+.meta {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: .78rem;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: .5rem 0;
+  margin: 1.4rem 0 2rem;
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+}
+
+code, kbd, .mono {
+  font-family: "SF Mono", "JetBrains Mono", Consolas, monospace;
+  font-size: .86em;
+  background: var(--code-bg);
+  padding: .1em .35em;
+  border-radius: 3px;
+}
+pre {
+  background: var(--code-bg);
+  padding: 1rem 1.1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+}
+pre code { background: none; padding: 0; }
+
+/* ---- Callouts ---- */
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  padding: .8rem 1.1rem;
+  border-radius: 0 6px 6px 0;
+  margin: 1.4rem 0;
+}
+.callout.aha { border-left-color: var(--ok); background: #545522; }
+.callout.warn { border-left-color: var(--no); background: #917066; }
+.callout h3 { margin-top: 0; color: inherit; }
+
+/* ---- Definition chips ---- */
+.term { font-weight: 600; color: var(--accent); }
+
+/* ---- Network map diagram ---- */
+.netmap {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  margin: 1.8rem auto;
+  max-width: 30rem;
+}
+.node {
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  padding: .7rem .9rem;
+  background: #fff;
+  position: relative;
+}
+.node .n-title { font-weight: 600; font-size: .95rem; }
+.node .n-sub { font-size: .78rem; color: var(--ink-soft); margin-top: .15rem; }
+.node.wan { border-color: var(--wan); }
+.node.wan .n-title { color: var(--wan); }
+.node.lan { border-color: var(--lan); }
+.node.lan .n-title { color: var(--lan); }
+.connector {
+  width: 2px;
+  height: 1.4rem;
+  background: var(--rule);
+  margin: 0 auto;
+}
+.leaf-row { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; margin-top: .3rem; }
+.leaf {
+  border: 1px dashed var(--lan);
+  border-radius: 6px;
+  padding: .4rem .6rem;
+  font-size: .8rem;
+  background: #f4f8f9;
+  flex: 1 1 40%;
+  text-align: center;
+}
+.leaf.hi { border-style: solid; background: #e7f0f2; font-weight: 600; }
+.tag {
+  display: inline-block;
+  font-size: .68rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  padding: .05rem .4rem;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-left: .4rem;
+}
+.tag.wan { background: var(--wan); color: #fff; }
+.tag.lan { background: var(--lan); color: #fff; }
+
+/* ---- Comparison / fact tables ---- */
+table { border-collapse: collapse; width: 100%; margin: 1.4rem 0; font-size: .92rem; }
+th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: ui-sans-serif, system-ui, sans-serif; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
+
+/* Course / mission map at end of each lesson */
+table.course-map tr.here td {
+  background: var(--accent-soft);
+}
+table.course-map tr.here td:last-child::after {
+  content: " · you are here";
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: .78rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---- Quiz widget (see assets/quiz.js) ---- */
+.quiz-block {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1.2rem 1.3rem;
+  margin: 2rem 0;
+  background: #fff;
+}
+.quiz-block > .kicker { margin-bottom: 1rem; }
+.q { margin: 0 0 1.6rem; }
+.q:last-child { margin-bottom: 0; }
+.q-stem { font-weight: 600; margin: 0 0 .7rem; }
+.opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: .95rem;
+  padding: .55rem .8rem;
+  margin: .4rem 0;
+  border: 1.5px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.opt:hover:not(:disabled) { border-color: var(--accent); }
+.opt:disabled { cursor: default; opacity: .85; }
+.opt.right { border-color: var(--ok); background: #eef6ee; color: var(--ok); font-weight: 600; }
+.opt.wrong { border-color: var(--no); background: #fbeeec; color: var(--no); }
+.q-feedback {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: .85rem;
+  margin: .6rem 0 0;
+  min-height: 1.2em;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.q-feedback.show { opacity: 1; }
+.q-feedback.ok { color: var(--ok); }
+.q-feedback.no { color: var(--no); }
+
+@media (prefers-color-scheme: dark) {
+  .quiz-block { background: #201d16; }
+  .opt.right { background: #1c2a1c; }
+  .opt.wrong { background: #2a1c1a; }
+}
+@media print { .quiz-block { break-inside: avoid; } }
+
+/* ---- Footer / navigation ---- */
+.lesson-nav {
+  margin-top: 3rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  justify-content: space-between;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: .85rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.ask-teacher {
+  margin-top: 2.4rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: .9rem;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+}
+.source-box {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  margin: 1.8rem 0;
+}
+.source-box .kicker { margin-bottom: .3rem; }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #ececec; --ink-soft: #b3b0a8; --bg: #17150f; --rule: #38352c;
+    --accent: #d79a6a; --accent-soft: #241f16; --code-bg: #201d16;
+  }
+  .node { background: #201d16; }
+  .leaf { background: #1c211f; }
+  .leaf.hi { background: #223033; }
+}
+
+@media print {
+  body { padding: 0; font-size: 12pt; background: #fff; color: #000; }
+  a { color: #000; text-decoration: underline; }
+  .ask-teacher, .lesson-nav { break-inside: avoid; }
+  .callout, .node, .source-box { break-inside: avoid; }
+}

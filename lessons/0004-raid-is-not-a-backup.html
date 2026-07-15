@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 4 — RAID Is Not a Backup</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Lesson 4 · Storage &amp; data reliability · builds on <a href="0003-blocking-ads-network-wide.html">Lesson 3</a></p>
+  <h1>RAID is not a backup</h1>
+  <p class="lead">Your mission includes photos and documents on hardware
+  <em>you</em> control. Before you buy disks or pick TrueNAS, you need one
+  mental model that stops expensive mistakes: <a href="../reference/storage-glossary.html#redundancy" class="term">redundancy</a>
+  keeps a box online when a drive dies;
+  a <a href="../reference/storage-glossary.html#backup" class="term">backup</a>
+  is what saves you when the box — or everything in the house — is gone.</p>
+
+  <div class="meta">
+    <span>~12 min</span>
+    <span>Concept</span>
+    <span>Win: apply 3-2-1 to your own data, and know what ZFS uniquely buys you</span>
+  </div>
+
+  <h2>Two jobs people confuse</h2>
+  <table>
+    <tr><th></th><th>Redundancy (RAID / ZFS pool)</th><th>Backup (3-2-1)</th></tr>
+    <tr><td>Survives a dead drive?</td><td>Yes</td><td>Yes (if you have copies)</td></tr>
+    <tr><td>Survives "rm -rf" / bad sync?</td><td>No — deletes hit every disk</td><td>Yes — restore from an older copy</td></tr>
+    <tr><td>Survives ransomware?</td><td>No — encrypts the whole pool</td><td>Yes — if one copy is offline/off-site</td></tr>
+    <tr><td>Survives fire / theft?</td><td>No — one physical box</td><td>Yes — the off-site copy</td></tr>
+  </table>
+  <p>A mirrored NAS with six healthy drives and <em>no</em> separate copy still
+  has <b>one</b> copy of your data. That is not sovereignty — that is a single
+  point of failure with a fancy filesystem.</p>
+
+  <div class="callout warn">
+    <h3>The sentence to memorise</h3>
+    <p style="margin-bottom:0;"><b>RAID (and a ZFS pool) is redundancy for uptime.
+    Backups are copies for recovery.</b> You want both. Official NAS docs say the
+    same thing: redundancy is <em>not</em> a substitute for a backup strategy
+    (<a href="https://cdn.truenas.com/docs/references/zfsprimer/" target="_blank" rel="noopener">TrueNAS ZFS Primer</a>).</p>
+  </div>
+
+  <h2>The 3-2-1 rule</h2>
+  <p><a href="https://www.cisa.gov/audiences/small-and-medium-businesses/secure-your-business/back-up-business-data" target="_blank" rel="noopener">CISA</a>
+  recommends this baseline (originally popularised by photographer Peter Krogh):</p>
+  <div class="netmap">
+    <div class="node lan"><div class="n-title"><b>3</b> copies of important data</div><div class="n-sub">primary + at least two more</div></div>
+    <div class="connector"></div>
+    <div class="node"><div class="n-title"><b>2</b> different media types</div><div class="n-sub">e.g. NAS disks + USB/external or cloud object storage</div></div>
+    <div class="connector"></div>
+    <div class="node wan"><div class="n-title"><b>1</b> copy off-site</div><div class="n-sub">survives house fire, flood, theft</div></div>
+  </div>
+
+  <h3>A concrete shape for your mission</h3>
+  <p>You do not need to buy anything yet — just picture the slots:</p>
+  <table>
+    <tr><th>Copy</th><th>Where</th><th>Job</th></tr>
+    <tr><td>1 — primary</td><td>Home NAS (ZFS pool)</td><td>Day-to-day photos, docs, media library</td></tr>
+    <tr><td>2 — local backup</td><td>Second machine, or external drive you unplug</td><td>Fast restore; survives NAS death / oops-delete</td></tr>
+    <tr><td>3 — off-site</td><td>Cloud backup, or a drive kept elsewhere</td><td>Survives the house going wrong</td></tr>
+  </table>
+  <p><a href="../reference/storage-glossary.html#snapshot" class="term">ZFS snapshots</a>
+  on the NAS are brilliant for "I deleted that yesterday" — but they live on the
+  <em>same</em> pool. They count toward recovery <em>convenience</em>, not toward
+  the off-site "1" until you
+  <a href="../reference/storage-glossary.html#replication" class="term">replicate</a>
+  them somewhere else.</p>
+
+  <div class="callout aha">
+    <h3>Test restores, or you don't have a backup</h3>
+    <p style="margin-bottom:0;">CISA also stresses: secure backups (encryption,
+    offline where it matters) and <em>test</em> that you can restore. An untested
+    backup is a hypothesis. For home: once a quarter, restore one random folder
+    from the off-site copy and open a few files.</p>
+  </div>
+
+  <h2>Why ZFS, not "just RAID"</h2>
+  <p>Traditional <a href="../reference/storage-glossary.html#raid" class="term">RAID</a>
+  answers: "what if a drive dies?" It does <em>not</em> answer: "what if a drive
+  quietly corrupts a photo while claiming it's fine?" That failure mode is
+  <a href="../reference/storage-glossary.html#bit-rot" class="term">bit rot</a>.</p>
+  <p><a href="../reference/storage-glossary.html#zfs" class="term">ZFS</a>
+  (via TrueNAS / OpenZFS) checksums every block on write and verifies on read.
+  If a block is wrong and redundancy still has a good copy, ZFS
+  <a href="../reference/storage-glossary.html#self-healing" class="term">self-heals</a>
+  it. Periodic <a href="../reference/storage-glossary.html#scrub" class="term">scrubs</a>
+  read the whole pool so rarely-touched files get checked too
+  (<a href="https://cdn.truenas.com/docs/references/zfsprimer/" target="_blank" rel="noopener">TrueNAS ZFS Primer</a>).</p>
+  <p>For irreplaceable family photos and documents — the sovereignty case — that
+  integrity story is why this course leans ZFS, not bare mdadm RAID or a
+  single-disk USB drive as the primary store.</p>
+
+  <div class="callout">
+    <h3>What's next (not this lesson)</h3>
+    <p style="margin-bottom:0;">Pool layouts (mirror vs RAIDZ2), how many drives,
+    and hardware choices come after this mental model. Buying disks before you
+    know "RAID ≠ backup" and "plan the <a href="../reference/storage-glossary.html#vdev" class="term">vdev</a>
+    before you create the pool" is how people paint themselves into a corner.</p>
+  </div>
+
+  <div class="quiz-block">
+    <p class="kicker">Check yourself · recall, don't peek</p>
+
+    <div class="q" data-correctmsg="Right — deletes and malware hit every disk in the array together."
+                   data-wrongmsg="See the comparison table. Redundancy survives a dead drive; it does not survive deleting a folder or ransomware encrypting the pool.">
+      <p class="q-stem">1. A 4-disk ZFS mirror loses a folder you deleted. Why?</p>
+      <button class="opt">ZFS never stores more than one copy</button>
+      <button class="opt" data-correct="true">The delete is written to every disk</button>
+      <button class="opt">Mirrors only protect cloud backups</button>
+      <button class="opt">Scrubs erase files older than a week</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Exactly — 3 copies, 2 media types, 1 off-site."
+                   data-wrongmsg="See 'The 3-2-1 rule.' Three copies, two media types, one copy geographically separate.">
+      <p class="q-stem">2. What does the "1" in 3-2-1 require?</p>
+      <button class="opt">One backup software license only</button>
+      <button class="opt">One disk reserved as a hot spare</button>
+      <button class="opt" data-correct="true">One copy stored away from the site</button>
+      <button class="opt">One nightly scrub of the main pool</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Yes — checksums catch silent corruption; self-heal needs redundancy."
+                   data-wrongmsg="See 'Why ZFS.' Traditional RAID handles dead drives; ZFS adds checksums so bit rot is detected (and repaired when a good copy exists).">
+      <p class="q-stem">3. What does ZFS add that classic RAID usually lacks?</p>
+      <button class="opt">Faster Wi-Fi for large media files</button>
+      <button class="opt">Automatic off-site cloud replication</button>
+      <button class="opt">Unlimited free disk space growth</button>
+      <button class="opt" data-correct="true">Checksums that detect silent corruption</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Correct — snapshots live on the same pool until you replicate them."
+                   data-wrongmsg="See the concrete 3-2-1 shape. Snapshots help with oops-deletes locally; they are not the off-site copy by themselves.">
+      <p class="q-stem">4. Do daily ZFS snapshots satisfy the off-site "1"?</p>
+      <button class="opt" data-correct="true">No — they still live on that pool</button>
+      <button class="opt">Yes — snapshots are always off-site</button>
+      <button class="opt">Yes — if the scrub schedule is monthly</button>
+      <button class="opt">No — snapshots only work on USB disks</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="source-box">
+    <p class="kicker">Read this next (primary source)</p>
+    <p><a href="https://cdn.truenas.com/docs/references/zfsprimer/" target="_blank" rel="noopener">TrueNAS ZFS Primer</a>.
+    Skim especially: self-healing / checksums, scrubbing, and the explicit note
+    that RAID/redundancy is not a backup. For the backup rule itself, CISA's
+    short page
+    <a href="https://www.cisa.gov/audiences/small-and-medium-businesses/secure-your-business/back-up-business-data" target="_blank" rel="noopener">Back Up Business Data</a>
+    states 3-2-1 in plain language.</p>
+  </div>
+
+  <div class="ask-teacher">
+    <b>I'm your teacher — ask me anything.</b> Good follow-ups: <em>For my photos
+    vs re-downloadable media, do I apply 3-2-1 the same way? What counts as
+    "different media" at home? Is an external drive I leave plugged in really a
+    second copy? Where does ransomware-resistant / immutable backup fit?
+    Mirror vs RAIDZ2 — which should I lean toward for a media NAS?</em> Ask in
+    the chat.
+  </div>
+
+  <h2>Where your mission lives on this map</h2>
+  <p>Every goal is a place on the network (or storage) you can point to.
+  You are here on the path:</p>
+  <table class="course-map">
+    <tr><th>Mission goal</th><th>Lives at…</th><th>Covered in</th></tr>
+    <tr><td>Read your network map</td><td>ISP router → Flint 2 → LAN</td><td><a href="0001-read-your-network-map.html">Lesson 1 — Read your own network map</a></td></tr>
+    <tr><td>Understand the two-router chain</td><td>Flint WAN as guest; stateful NAT</td><td><a href="0001a-how-two-routers-chain.html">Lesson 1a — How two routers chain together</a></td></tr>
+    <tr><td>Reach homelab from outside</td><td>WireGuard + one port-forward</td><td><a href="0002-getting-home-from-outside.html">Lesson 2 — Getting home from outside</a></td></tr>
+    <tr><td>Block ads &amp; tracking</td><td>AdGuard Home DNS on the Flint 2</td><td><a href="0003-blocking-ads-network-wide.html">Lesson 3 — Blocking ads &amp; tracking network-wide</a></td></tr>
+    <tr class="here"><td>Store data reliably</td><td>3-2-1 backups + ZFS integrity</td><td><a href="0004-raid-is-not-a-backup.html">Lesson 4 — RAID is not a backup</a></td></tr>
+    <tr><td>Pick pool layout &amp; drives</td><td>ZFS vdevs (mirror / RAIDZ)</td><td>Lesson 5 — upcoming</td></tr>
+    <tr><td>Media center (*arr + Jellyfin)</td><td>Compute host on the LAN</td><td>later</td></tr>
+  </table>
+
+  <div class="lesson-nav">
+    <a href="0003-blocking-ads-network-wide.html">← Lesson 3</a>
+    <a href="../reference/storage-glossary.html">Storage glossary</a>
+    <span>Next: Lesson 5 — Pool layouts (mirror vs RAIDZ) &amp; drive counts</span>
+  </div>
+</div>
+</body>
+</html>

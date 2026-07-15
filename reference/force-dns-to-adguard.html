@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Force All DNS to AdGuard (Flint 2 / LuCI)</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .card { border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1.2rem; margin: 1.2rem 0; }
+  .card h3 { margin-top: 0; }
+  .steps { font-family: ui-sans-serif, system-ui, sans-serif; font-size: .9rem; padding-left: 1.2rem; }
+  .steps li { margin: .3rem 0; }
+  .fieldtable td:first-child { white-space: nowrap; font-family: ui-sans-serif, system-ui, sans-serif; color: var(--ink-soft); }
+  .tick { color: var(--ok); font-weight: 600; }
+  .cross { color: var(--no); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Reference · DNS · companion to <a href="../lessons/0003-blocking-ads-network-wide.html">Lesson 3</a></p>
+  <h1>Force all DNS to AdGuard</h1>
+  <p class="lead">A DNAT "DNS hijack" that catches devices with hardcoded DNS
+  (<code>8.8.8.8</code> and friends) and drags their port-53 queries back to the
+  Flint 2, where AdGuard is listening. Built for quick reference &mdash; skim it,
+  print it, return to it.</p>
+
+  <div class="meta">
+    <span>Flint 2 · LAN 192.168.8.0/24</span>
+    <span>Resolver: 192.168.8.1</span>
+    <span>Layer: firewall (DNAT)</span>
+  </div>
+
+  <h2>What it does (one line)</h2>
+  <p>Any LAN packet aimed at <em>any</em> DNS server on port <code>53</code> is
+  rewritten to hit <code>192.168.8.1:53</code>. Conntrack rewrites the reply's
+  source back to the original address, so the device never notices &mdash;
+  hardcoded DNS just silently starts obeying AdGuard.</p>
+
+  <h2>Get into LuCI</h2>
+  <p>GL.iNet admin panel &rarr; <b>System &rarr; Advanced Settings</b>, or go
+  straight to <code>http://192.168.8.1/cgi-bin/luci</code>. Log in as
+  <code>root</code> with your router admin password.</p>
+
+  <h2>Option A &mdash; LuCI GUI</h2>
+  <p><code>Network &rarr; Firewall &rarr; Port Forwards &rarr; Add</code>. A
+  port-forward <em>is</em> a DNAT rule. Set:</p>
+  <table class="fieldtable">
+    <tr><th>Field</th><th>Value</th></tr>
+    <tr><td>Name</td><td><code>Intercept-DNS</code></td></tr>
+    <tr><td>Restrict to address family</td><td>IPv4 only <span class="eg">(see IPv6 caveat)</span></td></tr>
+    <tr><td>Protocol</td><td>TCP, UDP</td></tr>
+    <tr><td>Source zone</td><td><code>lan</code></td></tr>
+    <tr><td>External port</td><td><code>53</code></td></tr>
+    <tr><td>Destination zone</td><td><code>lan</code></td></tr>
+    <tr><td>Internal IP address</td><td><code>192.168.8.1</code></td></tr>
+    <tr><td>Internal port</td><td><code>53</code></td></tr>
+  </table>
+  <p><b>Save</b>, then <b>Save &amp; Apply</b>.</p>
+
+  <h2>Option B &mdash; SSH (copy-paste, most reliable)</h2>
+  <p><code>ssh root@192.168.8.1</code>, then:</p>
+  <pre><code>uci set firewall.dns_int=redirect
+uci set firewall.dns_int.name='Intercept-DNS'
+uci set firewall.dns_int.src='lan'
+uci set firewall.dns_int.src_dport='53'
+uci set firewall.dns_int.proto='tcp udp'
+uci set firewall.dns_int.target='DNAT'
+uci set firewall.dns_int.dest='lan'
+uci set firewall.dns_int.dest_ip='192.168.8.1'
+uci set firewall.dns_int.dest_port='53'
+uci commit firewall
+/etc/init.d/firewall restart</code></pre>
+  <p>Equivalent block in <code>/etc/config/firewall</code>:</p>
+  <pre><code>config redirect
+	option name 'Intercept-DNS'
+	option src 'lan'
+	option src_dport '53'
+	option proto 'tcp udp'
+	option target 'DNAT'
+	option dest 'lan'
+	option dest_ip '192.168.8.1'
+	option dest_port '53'</code></pre>
+
+  <h2>Test</h2>
+  <p>From a LAN device, aim a query at a public resolver on purpose:</p>
+  <pre><code>nslookup example.com 8.8.8.8</code></pre>
+  <p>It still answers &mdash; but the answer now comes from AdGuard. Confirm the
+  lookup appears in AdGuard's <b>Query Log</b>. Before the rule it would never show
+  up there. An empty log = the redirect isn't matching.</p>
+
+  <h2>Caveats &amp; sibling rules</h2>
+  <div class="card">
+    <h3>IPv6 is a separate door</h3>
+    <p>If the LAN hands out IPv6, a device can bypass via an IPv6 DNS server
+    (e.g. <code>2001:4860:4860::8888</code>). Add a second redirect scoped to IPv6
+    pointing at the router's LAN IPv6 address. Heads-up: OpenWrt bug
+    <a href="https://github.com/openwrt/openwrt/issues/18387" target="_blank" rel="noopener">#18387</a>
+    &mdash; with <code>rx-gro-list</code> on (24.10 default) IPv6 DNAT can leak
+    packets; workaround <code>ethtool -K &lt;lan-if&gt; rx-gro-list off</code>. If
+    you don't rely on IPv6, the IPv4 rule covers the common offenders.</p>
+  </div>
+  <div class="card">
+    <h3>DoT &mdash; block port 853</h3>
+    <p>DNS-over-TLS skips port 53 entirely. Add a firewall <b>reject</b> rule for
+    <code>lan &rarr; wan</code> on TCP/UDP <code>853</code>. Clients then fall back
+    to plain 53, which this redirect catches.</p>
+  </div>
+  <div class="card">
+    <h3>DoH &mdash; can't catch at the firewall</h3>
+    <p>DNS-over-HTTPS (port <code>443</code>) is indistinguishable from normal web
+    traffic. Handle it by turning <b>Secure DNS / DNS-over-HTTPS off</b> in
+    browsers, not at the firewall.</p>
+  </div>
+  <div class="card">
+    <h3>No loop with AdGuard</h3>
+    <p>The rule is scoped to <code>src 'lan'</code>. AdGuard's own upstream queries
+    originate <em>from</em> the router, not the lan zone, so they're not
+    redirected. Keep the scope as-is.</p>
+  </div>
+
+  <h2>Quick coverage table</h2>
+  <table>
+    <tr><th>Bypass method</th><th>Caught by this rule?</th><th>Fix</th></tr>
+    <tr><td>Hardcoded IPv4 DNS (port 53)</td><td class="tick">Yes</td><td>This rule</td></tr>
+    <tr><td>Hardcoded IPv6 DNS (port 53)</td><td class="cross">No</td><td>IPv6 twin rule</td></tr>
+    <tr><td>DNS-over-TLS (853)</td><td class="cross">No</td><td>Reject 853</td></tr>
+    <tr><td>DNS-over-HTTPS (443)</td><td class="cross">No</td><td>Disable browser Secure DNS</td></tr>
+  </table>
+
+  <div class="source-box">
+    <p class="kicker">Primary sources</p>
+    <p><a href="https://openwrt.org/docs/guide-user/firewall/fw3_configurations/intercept_dns" target="_blank" rel="noopener">OpenWrt — DNS hijacking / interception</a>
+    and the reliability caveat in
+    <a href="https://github.com/openwrt/openwrt/issues/18387" target="_blank" rel="noopener">openwrt/openwrt #18387</a>.</p>
+  </div>
+
+  <div class="lesson-nav">
+    <a href="../lessons/0003-blocking-ads-network-wide.html">← Lesson 3</a>
+    <a href="networking-glossary.html">Glossary</a>
+    <a href="../MISSION.md">Mission</a>
+  </div>
+</div>
+</body>
+</html>

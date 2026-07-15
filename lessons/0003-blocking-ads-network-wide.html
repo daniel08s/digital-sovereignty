@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 3 — Blocking Ads &amp; Tracking Network-Wide</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Lesson 3 · DNS &amp; ad-blocking · builds on <a href="0002-getting-home-from-outside.html">Lesson 2</a></p>
+  <h1>Blocking ads &amp; tracking network-wide</h1>
+  <p class="lead">One setting, every device: phones, smart TVs, that chatty IoT
+  plug — all with <em>no software installed on any of them</em>. The trick is to
+  block at the layer they all quietly rely on: <a href="../reference/networking-glossary.html#dns" class="term">DNS</a>.
+  This lesson explains how DNS ad-blocking works, then turns on AdGuard Home on
+  your Flint 2.</p>
+
+  <div class="meta">
+    <span>~15 min</span>
+    <span>Concept + build</span>
+    <span>Win: ad-blocking for the whole house at the DNS layer</span>
+  </div>
+
+  <h2>Recap: DNS is the phone book every device uses</h2>
+  <p>Before your phone can load <code>example.com</code>, it must turn that name
+  into an IP address. It asks a <a href="../reference/networking-glossary.html#resolver" class="term">resolver</a>
+  — and it only ever asks <em>one</em>, whichever your
+  <a href="../reference/networking-glossary.html#dhcp" class="term">DHCP</a>
+  server handed it when it joined the network. That single chokepoint is the whole
+  idea: if <em>we</em> control the resolver, we control what every device is
+  allowed to look up.</p>
+
+  <h2>How blocking at DNS works</h2>
+  <p>An ad or tracker isn't magic — it's just a request to a domain like
+  <code>ads.example.com</code> or <code>track.metrics.io</code>. A
+  <a href="../reference/networking-glossary.html#sinkhole" class="term">DNS
+  sinkhole</a> keeps a big <b>blocklist</b> of those domains. When a device asks
+  for one, the resolver simply refuses — returns "no such address" — so the
+  connection is never even attempted. The ad never downloads; the tracker never
+  phones home.</p>
+
+  <div class="netmap">
+    <div class="node lan"><div class="n-title">Any device asks: "IP for <code>ads.example.com</code>?"</div><div class="n-sub">phone · TV · IoT — no software on them</div></div>
+    <div class="connector"></div>
+    <div class="node"><div class="n-title">AdGuard Home <span class="tag lan">resolver on Flint 2 · 192.168.8.1</span></div><div class="n-sub">On the blocklist? → refuse (blocked). Otherwise → forward upstream.</div></div>
+    <div class="leaf-row">
+      <div class="leaf hi">On blocklist → <b>NXDOMAIN</b><br>ad never loads</div>
+      <div class="leaf">Legit name → <a href="../reference/networking-glossary.html#upstream" class="term">upstream</a> over <a href="../reference/networking-glossary.html#encrypted-dns" class="term">encrypted DNS</a></div>
+    </div>
+  </div>
+
+  <p>Because <em>every</em> device on the network already funnels its lookups
+  through this one resolver, a single blocklist covers the entire house — no
+  per-device app, no fiddling with a TV that won't let you install anything.</p>
+
+  <div class="callout">
+    <h3>What DNS blocking can and can't do</h3>
+    <p><b>Great at:</b> killing whole ad/tracker <em>domains</em> for every device
+    at once — especially TVs and IoT you can't put an extension on.</p>
+    <p style="margin-bottom:0;"><b>Can't do:</b> block an ad served from the
+    <em>same</em> domain as the content (e.g. YouTube pre-rolls), or hide page
+    elements the way a browser extension (uBlock Origin) can. DNS blocking and a
+    browser blocker are complementary, not rivals — run both.</p>
+  </div>
+
+  <h2>Why AdGuard Home (and where it lives)</h2>
+  <p>Two things make <a href="../reference/networking-glossary.html#adguard" class="term">AdGuard Home</a>
+  the clean pick for you, and both are already on your Flint 2:</p>
+  <table>
+    <tr><th></th><th>AdGuard Home</th><th>Pi-hole</th></tr>
+    <tr><td>Encrypted <a href="../reference/networking-glossary.html#upstream" class="term">upstream</a></td><td>Built in (DoH/DoT)</td><td>Needs an add-on (cloudflared)</td></tr>
+    <tr><td>Per-client rules</td><td>Built in</td><td>Groups, more setup</td></tr>
+    <tr><td>On the Flint 2?</td><td>Yes — bundled app</td><td>Separate box/Pi</td></tr>
+  </table>
+  <p>AdGuard is a <b>bundled application on the Flint 2</b>, so there's no extra
+  hardware and — importantly — <b>no second DHCP server</b>. Your Flint 2 stays
+  the one DHCP server; it just starts advertising <em>itself</em>
+  (<code>192.168.8.1</code>) as the DNS resolver, and AdGuard answers on the
+  router. One network, one DHCP, one resolver — clean.</p>
+
+  <div class="callout aha">
+    <h3>Encrypted DNS: the piece that quietly matters most</h3>
+    <p>Plain DNS is clear text — your ISP can read and log every single domain
+    every device looks up, and many monetise exactly that. AdGuard forwards the
+    queries it <em>doesn't</em> block to an
+    <a href="../reference/networking-glossary.html#upstream" class="term">upstream</a>
+    over <a href="../reference/networking-glossary.html#encrypted-dns" class="term">DoH/DoT</a>,
+    so the ISP sees an encrypted blob, not your browsing. Blocking still works
+    because it happens on <em>your</em> resolver first, before anything leaves the
+    house. Sovereignty, not just fewer ads.</p>
+  </div>
+
+  <h2>The build</h2>
+
+  <h3>1. Turn on AdGuard Home</h3>
+  <p>On the Flint 2: <code>APPLICATIONS → AdGuard Home</code>. Enable it. GL.iNet
+  wires it in as the router's resolver automatically. Set an admin password when
+  prompted, then open its own dashboard (the app links to it).</p>
+
+  <h3>2. Point it at an encrypted upstream</h3>
+  <p>In AdGuard's <code>Settings → DNS settings → Upstream DNS servers</code>, use
+  an encrypted upstream instead of plain <code>53</code>. Good choices:</p>
+  <pre><code>https://dns.quad9.net/dns-query      # Quad9 (blocks known-malicious too)
+https://cloudflare-dns.com/dns-query # Cloudflare 1.1.1.1</code></pre>
+  <p>Click <b>Test upstreams</b> to confirm they answer, then Apply. Leave "load
+  balancing" on so it spreads queries across them.</p>
+
+  <h3>3. Add blocklists</h3>
+  <p><code>Filters → DNS blocklists</code>. AdGuard ships with its default list;
+  add the community-standard <b>OISD</b> list for broad coverage. Resist stacking
+  ten aggressive lists on day one — overlap adds little and over-blocking breaks
+  sites, which is annoying to debug. Start lean, add later if ads slip through.</p>
+
+  <h3>4. Confirm every device actually uses it</h3>
+  <p>DHCP hands out the new DNS setting only when a device <em>renews its lease</em>.
+  Reboot a device (or toggle its Wi-Fi) so it picks up <code>192.168.8.1</code> as
+  DNS, then load a known ad-heavy site. Watch AdGuard's <b>Query Log</b> — you
+  should see queries arriving, some tagged <span style="color:var(--no)">blocked</span>.
+  A dashboard that stays empty means devices are still using their old DNS.</p>
+
+  <div class="callout warn">
+    <h3>The bypass gotcha — some devices ignore your resolver</h3>
+    <p>DNS blocking only works if devices actually <em>ask</em> AdGuard. Two common
+    escapees:</p>
+    <p><b>Hardcoded DNS:</b> some gear (Google/Android, many smart TVs) ships with
+    <code>8.8.8.8</code> baked in and ignores DHCP. Fix on the Flint 2 with a
+    firewall rule that <em>redirects</em> all outbound port-<code>53</code> traffic
+    back to the router — so even hardcoded queries get caught.</p>
+    <p><b>Browser DoH:</b> Chrome/Firefox may run their own
+    encrypted DNS ("Secure DNS"), sailing right past AdGuard. Turn "Secure DNS" /
+    "DNS-over-HTTPS" <em>off</em> in the browser so it uses the system resolver.</p>
+    <p style="margin-bottom:0;">Reference card with the exact rule:
+    <a href="../reference/force-dns-to-adguard.html">Force all DNS to AdGuard (Flint 2 / LuCI)</a>.</p>
+  </div>
+
+  <h2>The payoff: ad-blocking anywhere</h2>
+  <p>Remember the full-tunnel choice from <a href="0002-getting-home-from-outside.html">Lesson 2</a>?
+  Here's where it pays off. On a full tunnel, your phone's
+  <a href="../reference/networking-glossary.html#allowed-ips" class="term">AllowedIPs</a>
+  is <code>0.0.0.0/0</code>, so <em>all</em> its traffic — including DNS — routes
+  home through <code>10.1.0.1</code> to the Flint 2, where AdGuard is waiting. Turn
+  on WireGuard on cellular and you get the same ad-blocking on the train that you
+  get on the sofa. That's the full stack clicking together: one resolver, reachable
+  from anywhere, over a tunnel only you can open.</p>
+
+  <div class="quiz-block">
+    <p class="kicker">Check yourself · recall, don't peek</p>
+
+    <div class="q" data-correctmsg="Right — refuse the lookup and the connection never happens."
+                   data-wrongmsg="See 'How blocking at DNS works.' The resolver returns 'no such address' for blocklisted domains, so the ad is never fetched.">
+      <p class="q-stem">1. How does DNS-level blocking stop an ad?</p>
+      <button class="opt">It strips ad pixels out of the web page</button>
+      <button class="opt">It encrypts the ad so it can't render</button>
+      <button class="opt" data-correct="true">It refuses to resolve the ad's domain</button>
+      <button class="opt">It firewalls the ad server's IP by port</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Exactly — one resolver every device already uses, no per-device app."
+                   data-wrongmsg="See the recap. Every device funnels lookups through the one DHCP-assigned resolver, so a single blocklist covers all of them.">
+      <p class="q-stem">2. Why does one blocklist cover TVs and IoT too?</p>
+      <button class="opt" data-correct="true">Every device asks the same one resolver</button>
+      <button class="opt">Each device downloads the blocklist itself</button>
+      <button class="opt">The blocklist is pushed over Bluetooth</button>
+      <button class="opt">Smart TVs share a firewall with phones</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Correct — the ISP sees an encrypted blob, not your domains."
+                   data-wrongmsg="See the 'encrypted DNS' aha box. Plain DNS is clear text; DoH/DoT to an upstream hides your lookups from the ISP.">
+      <p class="q-stem">3. What does encrypted upstream (DoH/DoT) buy you?</p>
+      <button class="opt">Faster blocking of new ad domains</button>
+      <button class="opt">A second DHCP server for redundancy</button>
+      <button class="opt">Ad-blocking without any blocklists</button>
+      <button class="opt" data-correct="true">Your ISP can't read your DNS lookups</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Yes — hardcoded DNS or browser DoH skips your resolver."
+                   data-wrongmsg="See the 'bypass gotcha' box. A device with hardcoded 8.8.8.8 (or browser Secure DNS) never asks AdGuard, so nothing is blocked.">
+      <p class="q-stem">4. Why might a device show no blocked queries at all?</p>
+      <button class="opt">Its blocklist TTL has not expired yet</button>
+      <button class="opt" data-correct="true">It bypasses AdGuard with its own DNS</button>
+      <button class="opt">The tunnel subnet overlaps the LAN</button>
+      <button class="opt">AdGuard only logs encrypted queries</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="source-box">
+    <p class="kicker">Read this next (primary source)</p>
+    <p><a href="https://github.com/AdguardTeam/AdGuardHome" target="_blank" rel="noopener">AdGuard Home — official repo &amp; docs</a>.
+    The primary source on how DNS sinkholing works, configuring upstream encrypted
+    DNS, blocklists, and per-client rules. Skim the README, then the Wiki's
+    "Getting started" and "Encryption" pages.</p>
+  </div>
+
+  <div class="ask-teacher">
+    <b>I'm your teacher — ask me anything.</b> Good follow-ups: <em>How do I set a
+    different, stricter blocklist just for the kids' devices (per-client rules)?
+    How do I whitelist a domain when a list over-blocks a site I need? What's the
+    exact Flint 2 firewall rule to force hardcoded-DNS devices back to AdGuard? Do
+    I still want AdGuard's own DHCP, or keep the router's?</em> Ask in the chat.
+  </div>
+
+  <h2>Where your mission lives on this map</h2>
+  <p>Every goal is a place on the network (or storage) you can point to.
+  You are here on the path:</p>
+  <table class="course-map">
+    <tr><th>Mission goal</th><th>Lives at…</th><th>Covered in</th></tr>
+    <tr><td>Read your network map</td><td>ISP router → Flint 2 → LAN</td><td><a href="0001-read-your-network-map.html">Lesson 1 — Read your own network map</a></td></tr>
+    <tr><td>Understand the two-router chain</td><td>Flint WAN as guest; stateful NAT</td><td><a href="0001a-how-two-routers-chain.html">Lesson 1a — How two routers chain together</a></td></tr>
+    <tr><td>Reach homelab from outside</td><td>WireGuard + one port-forward</td><td><a href="0002-getting-home-from-outside.html">Lesson 2 — Getting home from outside</a></td></tr>
+    <tr class="here"><td>Block ads &amp; tracking</td><td>AdGuard Home DNS on the Flint 2</td><td><a href="0003-blocking-ads-network-wide.html">Lesson 3 — Blocking ads &amp; tracking network-wide</a></td></tr>
+    <tr><td>Store data reliably</td><td>3-2-1 backups + ZFS integrity</td><td><a href="0004-raid-is-not-a-backup.html">Lesson 4 — RAID is not a backup</a></td></tr>
+    <tr><td>Pick pool layout &amp; drives</td><td>ZFS vdevs (mirror / RAIDZ)</td><td>Lesson 5 — upcoming</td></tr>
+    <tr><td>Media center (*arr + Jellyfin)</td><td>Compute host on the LAN</td><td>later</td></tr>
+  </table>
+
+  <div class="lesson-nav">
+    <a href="0002-getting-home-from-outside.html">← Lesson 2</a>
+    <a href="../reference/networking-glossary.html">Glossary</a>
+    <a href="0004-raid-is-not-a-backup.html">Lesson 4 — RAID is not a backup →</a>
+  </div>
+</div>
+</body>
+</html>

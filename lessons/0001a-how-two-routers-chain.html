@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1a — How Two Routers Chain Together</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Lesson 1a · Networking foundations · deep dive on <a href="0001-read-your-network-map.html">Lesson 1</a></p>
+  <h1>How two routers chain together</h1>
+  <p class="lead">You understood that a DMZ sends inbound traffic from the ISP
+  router to the Flint 2. This lesson answers the reverse: what is the Flint 2's
+  WAN, does it copy the ISP router's IP, and why does outbound traffic just
+  work with no rule to configure?</p>
+
+  <div class="meta">
+    <span>~7 min</span>
+    <span>Concepts-first</span>
+    <span>Win: explain both directions of traffic</span>
+  </div>
+
+  <h2>Your Flint 2 is "just another device" on the ISP router</h2>
+  <p>Physically, a cable runs from a <b>LAN port on the ISP router</b> to the
+  <b>WAN port on the Flint 2</b>. From the ISP router's point of view, the Flint 2
+  is nothing special — it plugged in and got a private address, exactly like your
+  laptop would. But hidden <em>behind</em> that one device is a whole second
+  network. You end up with two stacked private subnets:</p>
+
+  <div class="netmap">
+    <div class="node wan">
+      <div class="n-title">Internet</div>
+      <div class="n-sub">Reached via your one public IP</div>
+    </div>
+    <div class="connector"></div>
+    <div class="node wan">
+      <div class="n-title">ISP router · 192.168.1.1</div>
+      <div class="n-sub">LAN subnet 192.168.1.0/24 · acts like a "mini internet"</div>
+    </div>
+    <div class="connector"></div>
+    <div class="node lan">
+      <div class="n-title">Flint 2 · WAN = 192.168.1.2</div>
+      <div class="n-sub">A guest on the ISP's subnet (a neighbour of .1, not a copy)</div>
+    </div>
+    <div class="node lan" style="margin-top:.4rem;">
+      <div class="n-title">Flint 2 · LAN = 192.168.10.1</div>
+      <div class="n-sub">The gateway for YOUR subnet 192.168.10.0/24</div>
+    </div>
+    <div class="connector"></div>
+    <div class="leaf-row">
+      <div class="leaf">PCs</div>
+      <div class="leaf">NAS</div>
+      <div class="leaf">Smart devices</div>
+      <div class="leaf hi">WireGuard server</div>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <h3>Same subnet, different address — never identical</h3>
+    <p>The Flint 2's WAN is <code>192.168.1.<b>2</b></code>; the ISP router is
+    <code>192.168.1.<b>1</b></code>. Same neighbourhood
+    (<code>192.168.1.x</code>), different houses. Giving them the <em>same</em>
+    address would be an IP conflict and break the network. You don't copy the
+    ISP router's IP — you sit next to it.</p>
+  </div>
+
+  <h2>Make that WAN IP stable (so the DMZ target never moves)</h2>
+  <p>The goal isn't to match the ISP router — it's to make the Flint 2's WAN IP
+  <em>predictable</em>, so "<code>DMZ → 192.168.1.2</code>" always hits it. Two
+  equivalent ways:</p>
+  <ul>
+    <li><b>DHCP reservation</b> on the ISP router: "always give the Flint 2's MAC
+      the address <code>192.168.1.2</code>."</li>
+    <li><b>Static WAN</b> on the Flint 2: set WAN mode = static,
+      IP <code>192.168.1.2</code>, gateway <code>192.168.1.1</code>.</li>
+  </ul>
+
+  <h2>The "reverse": why outbound needs no rule</h2>
+  <p>Here's the key idea you were missing: <span class="term">NAT is
+  stateful</span>. Every time a device makes an <em>outbound</em> connection, the
+  router writes a temporary note — "<code>192.168.10.42</code> opened a chat with
+  youtube.com." When the reply returns, the router matches it to that note and
+  lets it back in automatically. End the conversation and the note is deleted.
+  There is no "reverse DMZ" to configure.</p>
+
+  <p>Follow one packet from your NAS out to the internet — notice it's a
+  <b>chain of gateways</b>, each router pointing "up" to the next:</p>
+
+  <table>
+    <tr><th>Step</th><th>Who</th><th>What happens</th></tr>
+    <tr><td>1</td><td>NAS <code>.10.42</code></td><td>Sends packet to its gateway, the Flint 2 (<code>192.168.10.1</code>)</td></tr>
+    <tr><td>2</td><td>Flint 2</td><td>NAT: rewrites source to WAN <code>192.168.1.2</code>, notes it, forwards to its gateway <code>192.168.1.1</code></td></tr>
+    <tr><td>3</td><td>ISP router</td><td>NAT again: rewrites source to your public IP, notes it, sends to the internet</td></tr>
+    <tr><td>4</td><td>the reply</td><td>Public IP → ISP router checks notes → <code>192.168.1.2</code> → Flint 2 checks notes → NAS. Automatic.</td></tr>
+  </table>
+
+  <div class="callout aha">
+    <h3>The rule that ties it all together</h3>
+    <p>You only need a <b>DMZ or port-forward</b> for connections that
+    <em>start from the outside</em> — like your phone at a café reaching your
+    WireGuard server. The router has no note for those, so it drops them by
+    default (which is what protects you). Outbound connections and their replies
+    always find their way back on their own.</p>
+    <p>That's why WireGuard is so tidy: you open <em>one</em> door (ISP DMZ →
+    Flint 2). Once the tunnel is up, your phone acts like it lives on
+    <code>192.168.10.x</code>, so reaching the NAS or Jellyfin uses the ordinary
+    automatic path — no per-service holes.</p>
+  </div>
+
+  <div class="quiz-block">
+    <p class="kicker">Check yourself · recall, don't peek</p>
+
+    <div class="q" data-correctmsg="Yes — a neighbour of the ISP router, not a copy of it."
+                   data-wrongmsg="Re-read the warning box. Same subnet, different house: ISP router .1, Flint 2 WAN .2.">
+      <p class="q-stem">1. What should the Flint 2's WAN IP be?</p>
+      <button class="opt">The exact same address as the ISP router</button>
+      <button class="opt" data-correct="true">A different address in the same subnet</button>
+      <button class="opt">A public address assigned by your ISP</button>
+      <button class="opt">Any address inside the Flint LAN</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Right — stateful NAT tracks each outbound connection."
+                   data-wrongmsg="See the 'reverse' section. The router remembers each outbound connection and matches replies to it.">
+      <p class="q-stem">2. What makes reply traffic get back automatically?</p>
+      <button class="opt">A reverse DMZ rule you configure manually</button>
+      <button class="opt">The public address shared across all devices</button>
+      <button class="opt" data-correct="true">The router tracks each outbound connection</button>
+      <button class="opt">DNS remembers which device made requests</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Exactly — only unsolicited, outside-initiated traffic needs a door."
+                   data-wrongmsg="See the 'aha' box. You only need DMZ/port-forward for connections started from the outside.">
+      <p class="q-stem">3. When do you actually need a DMZ or port-forward?</p>
+      <button class="opt">For every outbound request a device</button>
+      <button class="opt">Whenever two routers are chained together</button>
+      <button class="opt">For replies coming back from websites</button>
+      <button class="opt" data-correct="true">For connections started from the outside</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="source-box">
+    <p class="kicker">Read this next (primary source)</p>
+    <p><a href="https://thecybersecguru.com/self-hosting/networking-101-home-network-setup-self-hosting/" target="_blank" rel="noopener">Networking 101 for Self-Hosting — The CyberSec Guru</a>.
+    Its NAT "apartment building" walk-through (packet going out, reply coming
+    back) is the same story as the table above, told a second way — great for
+    making stateful NAT stick.</p>
+  </div>
+
+  <div class="ask-teacher">
+    <b>I'm your teacher — ask me anything.</b> Curious follow-ups: <em>What's
+    "bridge mode" and is it better than a DMZ here? Does double-NAT slow things
+    down? Why does the ISP router still do NAT if the DMZ forwards everything?</em>
+    Ask in the chat.
+  </div>
+
+  <h2>Where your mission lives on this map</h2>
+  <p>Every goal is a place on the network (or storage) you can point to.
+  You are here on the path:</p>
+  <table class="course-map">
+    <tr><th>Mission goal</th><th>Lives at…</th><th>Covered in</th></tr>
+    <tr><td>Read your network map</td><td>ISP router → Flint 2 → LAN</td><td><a href="0001-read-your-network-map.html">Lesson 1 — Read your own network map</a></td></tr>
+    <tr class="here"><td>Understand the two-router chain</td><td>Flint WAN as guest; stateful NAT</td><td><a href="0001a-how-two-routers-chain.html">Lesson 1a — How two routers chain together</a></td></tr>
+    <tr><td>Reach homelab from outside</td><td>WireGuard + one port-forward</td><td><a href="0002-getting-home-from-outside.html">Lesson 2 — Getting home from outside</a></td></tr>
+    <tr><td>Block ads &amp; tracking</td><td>AdGuard Home DNS on the Flint 2</td><td><a href="0003-blocking-ads-network-wide.html">Lesson 3 — Blocking ads &amp; tracking network-wide</a></td></tr>
+    <tr><td>Store data reliably</td><td>3-2-1 backups + ZFS integrity</td><td><a href="0004-raid-is-not-a-backup.html">Lesson 4 — RAID is not a backup</a></td></tr>
+    <tr><td>Pick pool layout &amp; drives</td><td>ZFS vdevs (mirror / RAIDZ)</td><td>Lesson 5 — upcoming</td></tr>
+    <tr><td>Media center (*arr + Jellyfin)</td><td>Compute host on the LAN</td><td>later</td></tr>
+  </table>
+
+  <div class="lesson-nav">
+    <a href="0001-read-your-network-map.html">← Lesson 1</a>
+    <a href="../reference/networking-glossary.html">Glossary</a>
+    <a href="0002-getting-home-from-outside.html">Lesson 2 — Getting home from outside →</a>
+  </div>
+</div>
+</body>
+</html>

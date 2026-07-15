@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 2 — Getting Home From Outside</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Lesson 2 · Remote access · builds on <a href="0001a-how-two-routers-chain.html">Lesson 1a</a></p>
+  <h1>Getting home from outside</h1>
+  <p class="lead">You can reach the internet from home automatically. Now for the
+  reverse: reaching <em>home</em> from a café or cellular data — securely, without
+  flinging your services open to the internet. This lesson builds a WireGuard
+  server on the Flint 2, opens exactly one door for it, and tests it from
+  outside.</p>
+
+  <div class="meta">
+    <span>~15 min</span>
+    <span>Build lesson</span>
+    <span>Win: connect to your LAN from anywhere</span>
+  </div>
+
+  <h2>Recap: why you only need one door</h2>
+  <p>From <a href="0001a-how-two-routers-chain.html">Lesson 1a</a>: outbound
+  connections and their replies flow back automatically, because
+  <a href="../reference/networking-glossary.html#nat" class="term">NAT is
+  stateful</a>. Only connections <em>started from the outside</em> need a
+  deliberate opening. A <a href="../reference/networking-glossary.html#vpn" class="term">VPN</a>
+  turns "reach my dozen home services from outside" into a single problem: open
+  <em>one</em> door for the VPN, and once the tunnel is up your phone behaves as
+  if it's sitting on <code>192.168.10.x</code> — every service reachable by the
+  ordinary automatic path, nothing else exposed.</p>
+
+  <div class="callout warn">
+    <h3>Step 0 — the go/no-go check: do you have a real public IP?</h3>
+    <p>Inbound access only works if your ISP gives you a genuine public IP. If
+    you're behind <a href="../reference/networking-glossary.html#nat" class="term">CGNAT</a>
+    (carrier-grade NAT), unsolicited inbound traffic dies at the ISP's equipment
+    before it ever reaches you — no port-forward can fix that.</p>
+    <p><b>The check:</b> find your ISP router's <b>WAN IP</b>, then compare it to
+    what <a href="https://ipconfig.io" target="_blank" rel="noopener">ipconfig.io</a>
+    (or "what is my IP") shows. <b>Match</b> = real public IP, continue.
+    <b>Different</b>, or WAN IP in <code>100.64.x.x</code>–<code>100.127.x.x</code>
+    or a private range → CGNAT → use <a href="../reference/networking-glossary.html#tailscale" class="term">Tailscale</a>
+    instead (it punches through CGNAT automatically).</p>
+  </div>
+
+  <h2>Choosing the tool: WireGuard vs Tailscale</h2>
+  <p>Both use the same fast, modern WireGuard protocol for the actual tunnel.
+  The difference is <em>who does the setup work</em>:</p>
+  <table>
+    <tr><th></th><th>Raw WireGuard (on the Flint 2)</th><th>Tailscale</th></tr>
+    <tr><td>Setup</td><td>You open one port + manage keys</td><td>Automatic, ~5 min</td></tr>
+    <tr><td>Needs a public IP?</td><td>Yes (or IPv6)</td><td>No — traverses CGNAT</td></tr>
+    <tr><td>Third-party dependency</td><td>None — you own it all</td><td>Tailscale's coordination server</td></tr>
+    <tr><td>Best when…</td><td>You have a public IP &amp; want full control</td><td>Behind CGNAT, or want zero fuss</td></tr>
+  </table>
+  <p>Since your CGNAT check passed and the Flint 2 has a built-in WireGuard
+  server, <b>raw WireGuard</b> is the clean, dependency-free choice here. (If your
+  ISP ever moves you to CGNAT, Tailscale is the drop-in fallback.)</p>
+
+  <h2>The build</h2>
+
+  <h3>1. Enable DDNS (a stable name for a moving IP)</h3>
+  <p>Your public IP can change over time. <a href="../reference/networking-glossary.html#ddns" class="term">Dynamic DNS</a>
+  gives you a hostname that always tracks it. On the Flint 2:
+  <code>APPLICATIONS → Dynamic DNS</code>, toggle on, accept terms, Apply. Note
+  the hostname (e.g. <code>something.glddns.com</code>) — your client will use
+  this as its endpoint. Allow ~10 minutes to propagate.</p>
+
+  <h3>2. Start the WireGuard server</h3>
+  <p><code>VPN → WireGuard Server → Start</code>. Sensible defaults, and why:</p>
+  <table>
+    <tr><th>Setting</th><th>Value</th><th>Why</th></tr>
+    <tr><td>Listen port</td><td><code>51820</code> (UDP)</td><td>Must match the port you'll forward. Keep them identical.</td></tr>
+    <tr><td>IPv4 address</td><td><code>10.1.0.1/24</code></td><td>The <b>tunnel subnet</b> — a virtual network living only inside the VPN. Leave it: it mustn't overlap your LAN (<code>192.168.10.0/24</code>), the ISP subnet, or the network you connect from. <code>10.1.0.x</code> avoids all three.</td></tr>
+    <tr><td>Obfuscation</td><td><b>Off</b></td><td>GL.iNet's obfuscation is AmneziaWG — the <em>standard</em> WireGuard app can't connect to it. Only enable if a network actively blocks WireGuard (and use the AmneziaWG client then).</td></tr>
+  </table>
+
+  <h3>3. Open exactly one door — port-forward, not DMZ</h3>
+  <p>On the ISP router, add a single rule: <b>UDP 51820 → 192.168.1.2</b> (the
+  Flint 2's WAN). That's it.</p>
+  <div class="callout aha">
+    <h3>Port-forward vs DMZ — pick one, pick port-forward</h3>
+    <p>They're two ways to do the same job; using both just re-widens the hole.
+    A <a href="../reference/networking-glossary.html#port-forward" class="term">port-forward</a>
+    opens <em>one</em> port and the ISP router keeps dropping everything else.
+    A <a href="../reference/networking-glossary.html#dmz" class="term">DMZ</a>
+    forwards <em>all</em> ports to the Flint 2, switching off the ISP router's
+    filtering entirely.</p>
+    <p>Port-forward wins because it keeps <b>two</b> firewalls filtering (ISP
+    router + Flint 2) instead of one, and shrinks your internet-facing attack
+    surface to a single UDP port. Think of a lobby guard who only admits
+    "room 51820" vs. removing the front door and hoping every apartment's lock
+    holds. Keep DMZ off; reach for it only as a temporary debugging step.</p>
+  </div>
+
+  <h3>4. Create a client profile</h3>
+  <p>On the WireGuard Server, add a <b>profile</b> (one per device). Enable
+  <b>"use DDNS domain"</b> so the endpoint is your <code>glddns.com</code> name,
+  not a raw IP. The Flint 2 generates a QR code / <code>.conf</code> file — open
+  the <a href="https://www.wireguard.com/install/" target="_blank" rel="noopener">official WireGuard app</a>
+  on your phone and scan it.</p>
+  <div class="callout">
+    <h3>Full tunnel vs split tunnel (you can change this anytime)</h3>
+    <p>A client's <code>AllowedIPs</code> decides what routes through the tunnel:</p>
+    <ul style="margin:.3rem 0 0;">
+      <li><b>Split tunnel</b> — only home-LAN traffic goes through; normal
+        browsing stays direct. Faster; good for "just reach my homelab."</li>
+      <li><b>Full tunnel</b> (<code>0.0.0.0/0</code>) — <em>all</em> phone traffic
+        routes through home, so you also get your home IP and (later) AdGuard
+        ad-blocking while out. Uses more bandwidth.</li>
+    </ul>
+    <p style="margin-bottom:0;">Start with the default; revisit after the AdGuard
+    lesson, where full-tunnel becomes "ad-blocking anywhere."</p>
+  </div>
+
+  <h3>5. Test from a real external network</h3>
+  <p>Turn <em>off</em> Wi-Fi on your phone (cellular only = genuinely outside),
+  activate the tunnel, and try to reach the Flint 2 admin at
+  <code>192.168.10.1</code> or your NAS. Debugging order if it fails: first prove
+  the tunnel works using the Flint 2's <em>local</em> IP while on your home Wi-Fi,
+  then switch the endpoint to the DDNS name and retest from cellular. Common
+  culprits: DDNS not propagated yet, forwarding set to TCP instead of UDP, or the
+  port-forward pointing at the wrong internal IP.</p>
+
+  <div class="quiz-block">
+    <p class="kicker">Check yourself · recall, don't peek</p>
+
+    <div class="q" data-correctmsg="Right — one open port vs. all of them."
+                   data-wrongmsg="See the 'aha' box. A port-forward opens one port; a DMZ forwards everything, disabling the ISP router's filtering.">
+      <p class="q-stem">1. Why is a port-forward safer than a DMZ?</p>
+      <button class="opt">It encrypts inbound traffic that a DMZ leaks</button>
+      <button class="opt" data-correct="true">It opens one port; a DMZ opens all</button>
+      <button class="opt">It hides your public IP from port scanners</button>
+      <button class="opt">It moves the firewall onto the ISP router</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Yes — it exists only inside the VPN."
+                   data-wrongmsg="See step 2. The 10.1.0.1/24 is the tunnel subnet — a virtual network living only inside the VPN.">
+      <p class="q-stem">2. What is the tunnel subnet <code>10.1.0.1/24</code>?</p>
+      <button class="opt">Your home LAN that all devices join</button>
+      <button class="opt">The public address your ISP has assigned</button>
+      <button class="opt" data-correct="true">A virtual network living only inside the VPN</button>
+      <button class="opt">The ISP router's subnet on its WAN</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Correct — obfuscation is AmneziaWG, incompatible with the standard app."
+                   data-wrongmsg="See step 2. GL.iNet obfuscation uses AmneziaWG, which the standard WireGuard app cannot connect to.">
+      <p class="q-stem">3. Why keep obfuscation switched off?</p>
+      <button class="opt">It drops tunnel speed below usable levels</button>
+      <button class="opt" data-correct="true">The standard WireGuard app cannot connect otherwise</button>
+      <button class="opt">It exposes your DNS queries to the ISP</button>
+      <button class="opt">It needs a paid GL.iNet cloud subscription</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Exactly — no real public IP, no inbound."
+                   data-wrongmsg="See Step 0. Inbound access requires a real public IP; CGNAT kills port-forwarding.">
+      <p class="q-stem">4. Before trusting inbound access, confirm what?</p>
+      <button class="opt">That your LAN uses the 10.x range</button>
+      <button class="opt">That two DHCP servers stay running</button>
+      <button class="opt">That obfuscation matches on both ends</button>
+      <button class="opt" data-correct="true">That your ISP gives a real public IP</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="source-box">
+    <p class="kicker">Read this next (primary source)</p>
+    <p><a href="https://docs.gl-inet.com/router/en/4/tutorials/build_your_own_wireguard_home_server_with_two_glinet_routers" target="_blank" rel="noopener">Build your own WireGuard home server — GL.iNet official docs</a>.
+    The exact device workflow: check whether port forwarding is needed, reserve
+    the router's IP, enable DDNS, and start the WireGuard server. Matches this
+    lesson step for step on your hardware.</p>
+  </div>
+
+  <div class="ask-teacher">
+    <b>I'm your teacher — ask me anything.</b> Good follow-ups: <em>How do I add a
+    second device (laptop) later? What exactly does "use DDNS domain" put in the
+    config file? If I pick full tunnel, does my home upload speed cap my
+    browsing? How do I revoke a device I've lost?</em> Ask in the chat.
+  </div>
+
+  <h2>Where your mission lives on this map</h2>
+  <p>Every goal is a place on the network (or storage) you can point to.
+  You are here on the path:</p>
+  <table class="course-map">
+    <tr><th>Mission goal</th><th>Lives at…</th><th>Covered in</th></tr>
+    <tr><td>Read your network map</td><td>ISP router → Flint 2 → LAN</td><td><a href="0001-read-your-network-map.html">Lesson 1 — Read your own network map</a></td></tr>
+    <tr><td>Understand the two-router chain</td><td>Flint WAN as guest; stateful NAT</td><td><a href="0001a-how-two-routers-chain.html">Lesson 1a — How two routers chain together</a></td></tr>
+    <tr class="here"><td>Reach homelab from outside</td><td>WireGuard + one port-forward</td><td><a href="0002-getting-home-from-outside.html">Lesson 2 — Getting home from outside</a></td></tr>
+    <tr><td>Block ads &amp; tracking</td><td>AdGuard Home DNS on the Flint 2</td><td><a href="0003-blocking-ads-network-wide.html">Lesson 3 — Blocking ads &amp; tracking network-wide</a></td></tr>
+    <tr><td>Store data reliably</td><td>3-2-1 backups + ZFS integrity</td><td><a href="0004-raid-is-not-a-backup.html">Lesson 4 — RAID is not a backup</a></td></tr>
+    <tr><td>Pick pool layout &amp; drives</td><td>ZFS vdevs (mirror / RAIDZ)</td><td>Lesson 5 — upcoming</td></tr>
+    <tr><td>Media center (*arr + Jellyfin)</td><td>Compute host on the LAN</td><td>later</td></tr>
+  </table>
+
+  <div class="lesson-nav">
+    <a href="0001a-how-two-routers-chain.html">← Lesson 1a</a>
+    <a href="../reference/networking-glossary.html">Glossary</a>
+    <a href="0003-blocking-ads-network-wide.html">Lesson 3 — Blocking ads &amp; tracking network-wide →</a>
+  </div>
+</div>
+</body>
+</html>

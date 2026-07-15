@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Networking Glossary — Digital Sovereignty</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .gloss dt { font-weight: 600; color: var(--accent); margin-top: 1.1rem; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .gloss dd { margin: .2rem 0 0; }
+  .gloss dd .eg { color: var(--ink-soft); font-size: .9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Reference · Networking</p>
+  <h1>Networking Glossary</h1>
+  <p class="lead">The canonical definitions for this course. Every lesson uses
+  these terms exactly as defined here. Keep this open while you learn — it's
+  built to be skimmed, printed, and returned to.</p>
+
+  <dl class="gloss">
+    <dt id="ip">IP address</dt>
+    <dd>A numeric label identifying a device on a network, e.g.
+      <code>192.168.10.42</code>. Two flavours matter to us: <b>public</b> and
+      <b>private</b>.</dd>
+
+    <dt id="public-ip">Public IP</dt>
+    <dd>The single address your ISP gives your home, reachable from the whole
+      internet. Think of it as your building's street address.
+      <span class="eg">You have (usually) just one.</span></dd>
+
+    <dt id="private-ip">Private IP</dt>
+    <dd>An address used only inside your own network; not routable on the public
+      internet. Like apartment numbers inside the building.</dd>
+
+    <dt id="rfc1918">RFC1918 ranges</dt>
+    <dd>The three blocks reserved for private use:
+      <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>,
+      <code>192.168.0.0/16</code>. Home gear lives in these.</dd>
+
+    <dt id="subnet">Subnet</dt>
+    <dd>A slice of address space whose members can talk to each other directly.
+      Traffic leaving the subnet must go through the router.</dd>
+
+    <dt id="mask">Subnet mask / CIDR /24</dt>
+    <dd>Defines where the "network" part of an address ends and the "device" part
+      begins. <code>/24</code> = <code>255.255.255.0</code>: the first three
+      numbers are the <i>neighbourhood</i>, the last is the <i>house</i>.
+      A <code>/24</code> holds 254 usable device addresses.
+      <span class="eg"><code>192.168.10.0/24</code> spans .1 → .254.</span></dd>
+
+    <dt id="gateway">Default gateway</dt>
+    <dd>The router address a device sends traffic to when the destination is
+      outside its own subnet. <span class="eg">Usually the router's <code>.1</code>.</span></dd>
+
+    <dt id="dhcp">DHCP</dt>
+    <dd>Dynamic Host Configuration Protocol. A server (usually the router) that
+      automatically hands out IP addresses, gateway, and DNS to devices as they
+      join. <b>Rule: run exactly one DHCP server per network.</b></dd>
+
+    <dt id="static">Static IP / reservation</dt>
+    <dd>A fixed address that never changes. A <b>DHCP reservation</b> tells the
+      DHCP server to always give a specific device the same IP (best of both
+      worlds). Servers (NAS, DNS) want stable addresses.</dd>
+
+    <dt id="nat">NAT</dt>
+    <dd>Network Address Translation. Lets many private IPs share one public IP.
+      The router rewrites the "from" address on the way out and remembers who
+      asked, so replies get back to the right device.</dd>
+
+    <dt id="double-nat">Double NAT</dt>
+    <dd>Two routers each doing NAT in series (e.g. ISP router → your own router).
+      Works for browsing, but makes inbound connections and port forwarding
+      awkward. Often solved with a <a href="#dmz">DMZ</a> or bridge mode.</dd>
+
+    <dt id="wan">WAN vs LAN</dt>
+    <dd><b>WAN</b> = the "outside" side of a router (toward the internet/ISP).
+      <b>LAN</b> = the "inside" side (your devices).</dd>
+
+    <dt id="port">Port</dt>
+    <dd>A number identifying a specific service on a device
+      (<code>80</code>=HTTP, <code>443</code>=HTTPS, <code>53</code>=DNS). An IP
+      is the building; the port is the specific office door.</dd>
+
+    <dt id="port-forward">Port forwarding</dt>
+    <dd>A router rule that sends inbound traffic on a given port to a specific
+      internal device. How the outside world reaches an internal service —
+      powerful but exposes that service, so use sparingly.</dd>
+
+    <dt id="dmz">DMZ (home-router sense)</dt>
+    <dd>A setting that forwards <i>all</i> inbound traffic to one internal IP.
+      On an ISP router, pointing the DMZ at your own router's WAN IP is a blunt
+      way to defeat double-NAT so your router controls everything.
+      <span class="eg">Not the same as an enterprise DMZ network segment.</span></dd>
+
+    <dt id="dns">DNS</dt>
+    <dd>Domain Name System. Translates human names
+      (<code>jellyfin.local</code>, <code>example.com</code>) into IP addresses.
+      A phone book for the internet. Also the layer where ad-blocking happens.</dd>
+
+    <dt id="ddns">Dynamic DNS (DDNS)</dt>
+    <dd>A service that keeps a hostname pointed at your home's public IP even when
+      the ISP changes that IP. Lets you reach home by name instead of a number
+      that moves.</dd>
+
+    <dt id="resolver">Resolver (recursive resolver)</dt>
+    <dd>The server a device asks to turn a name into an IP. A <b>recursive</b>
+      resolver does the legwork — walking from the root servers down to the
+      authoritative server for the domain — then hands back the answer and
+      <a href="#cache">caches</a> it. Your device only ever talks to <i>one</i>
+      resolver (whatever <a href="#dhcp">DHCP</a> told it to use).</dd>
+
+    <dt id="cache">DNS cache / TTL</dt>
+    <dd>Answers are stored for a while so repeat lookups are instant. Each record
+      carries a <b>TTL</b> (time-to-live) saying how many seconds it may be reused
+      before a fresh query is needed. <span class="eg">Why a blocklist or DNS
+      change can take minutes to "take" — old answers linger until the TTL
+      expires.</span></dd>
+
+    <dt id="sinkhole">DNS sinkhole / blocklist</dt>
+    <dd>The mechanism behind DNS ad-blocking. A <b>blocklist</b> is a big list of
+      ad/tracker/malware domains. When a device asks for one, the resolver refuses
+      it — returning "no such address" (<code>NXDOMAIN</code>) or
+      <code>0.0.0.0</code> — so the connection never happens. Because <i>every</i>
+      device asks DNS, one list covers the whole network, including TVs and IoT
+      with no software to install.</dd>
+
+    <dt id="upstream">Upstream DNS</dt>
+    <dd>Where your own resolver forwards the queries it <i>doesn't</i> block, e.g.
+      Cloudflare (<code>1.1.1.1</code>), Quad9 (<code>9.9.9.9</code>), or your ISP.
+      <a href="#adguard">AdGuard Home</a> blocks locally, then asks an upstream for
+      everything legitimate.</dd>
+
+    <dt id="encrypted-dns">Encrypted DNS (DoH / DoT)</dt>
+    <dd>Plain DNS is sent in clear text, so your ISP (or anyone on the path) can
+      read and log every domain you visit. <b>DoH</b> (DNS-over-HTTPS) and
+      <b>DoT</b> (DNS-over-TLS) wrap those queries in encryption to a chosen
+      <a href="#upstream">upstream</a>. Blocking still works because it happens on
+      <i>your</i> resolver, before the query leaves the house.</dd>
+
+    <dt id="adguard">AdGuard Home</dt>
+    <dd>Self-hosted DNS resolver + ad-blocker. It sits between your devices and the
+      internet as the LAN's <a href="#resolver">resolver</a>: applies
+      <a href="#sinkhole">blocklists</a>, forwards the rest over
+      <a href="#encrypted-dns">encrypted DNS</a>, and logs per-client queries.
+      Built into the Flint 2 (no separate box needed). <span class="eg">Pi-hole is
+      the popular alternative; AdGuard bundles encrypted upstream DNS and
+      per-client rules out of the box.</span></dd>
+
+    <dt id="vpn">VPN</dt>
+    <dd>Virtual Private Network. An encrypted tunnel that makes a remote device
+      behave as if it's on your home LAN. Our chosen way to reach the homelab
+      from outside — no open ports needed.</dd>
+
+    <dt id="wireguard">WireGuard</dt>
+    <dd>A modern, fast VPN protocol built on key pairs (each peer has a public and
+      private key) and UDP. Simple and auditable.</dd>
+
+    <dt id="keypair">Keypair (public / private key)</dt>
+    <dd>Each WireGuard peer has a <b>private key</b> (never leaves the device) and
+      a <b>public key</b> (shared freely). Traffic is encrypted <i>to</i> a public
+      key and can only be opened by the matching private key. Replaces passwords.</dd>
+
+    <dt id="peer">Peer</dt>
+    <dd>Either end of a WireGuard tunnel. WireGuard has no built-in "client" vs
+      "server" — just peers that each list the other's public key. The always-on
+      end (e.g. your router) is loosely called the server because it waits.</dd>
+
+    <dt id="endpoint">Endpoint</dt>
+    <dd>The public <a href="#ip">IP</a> + UDP <a href="#port">port</a> where a peer
+      can be reached, e.g. <code>your-home-ip:51820</code>. A roaming peer (your
+      phone) needn't have a fixed endpoint — the far side learns it from the
+      <a href="#handshake">handshake</a>.</dd>
+
+    <dt id="handshake">Handshake</dt>
+    <dd>The brief key exchange that starts (and periodically refreshes) a WireGuard
+      tunnel. It also teaches the always-on peer the current address of a roaming
+      peer, which is why WireGuard survives Wi-Fi ↔ mobile switches.</dd>
+
+    <dt id="allowed-ips">AllowedIPs</dt>
+    <dd>The WireGuard setting that decides which destination addresses route
+      through the tunnel. <code>192.168.10.0/24</code> = only home traffic tunnels;
+      <code>0.0.0.0/0</code> = <i>all</i> traffic exits via home.</dd>
+
+    <dt id="cgnat">CGNAT (Carrier-Grade NAT)</dt>
+    <dd>When your ISP puts your home behind <i>its own</i> NAT, sharing one public
+      IP across many customers. You get no public IP to forward a port on, so
+      inbound connections (a self-hosted VPN server) can't reach you. Tell-tale
+      sign: a WAN IP in <code>100.64.0.0/10</code> that differs from your
+      "what's my IP". <span class="eg">Fixes: ask ISP for a public IP, or use a
+      relay/NAT-traversal VPN like <a href="#tailscale">Tailscale</a>.</span></dd>
+
+    <dt id="nat-traversal">NAT traversal</dt>
+    <dd>Techniques that let two devices behind separate NATs connect without a
+      manually forwarded port (e.g. hole-punching via a coordination server, with
+      a relay as fallback). How Tailscale connects even behind
+      <a href="#cgnat">CGNAT</a>.</dd>
+
+    <dt id="tailscale">Tailscale</dt>
+    <dd>A managed <i>mesh</i> VPN built on WireGuard that automates keys, NAT
+      traversal, and access control. Easier than raw WireGuard; adds a dependency
+      on Tailscale's coordination service (but not on your traffic — keys stay on
+      your devices).</dd>
+  </dl>
+
+  <div class="lesson-nav">
+    <a href="../lessons/0001-read-your-network-map.html">← Lesson 1: Read your network map</a>
+    <a href="../MISSION.md">Mission</a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storage Glossary — Digital Sovereignty</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .gloss dt { font-weight: 600; color: var(--accent); margin-top: 1.1rem; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .gloss dd { margin: .2rem 0 0; }
+  .gloss dd .eg { color: var(--ink-soft); font-size: .9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Reference · Storage</p>
+  <h1>Storage Glossary</h1>
+  <p class="lead">Canonical definitions for the storage &amp; backup lessons.
+  Lessons use these terms exactly as defined here. Print-friendly; skim and return.</p>
+
+  <dl class="gloss">
+    <dt id="redundancy">Redundancy</dt>
+    <dd>Extra disks (or copies <em>inside one system</em>) so the system can keep
+      serving data when a drive dies. Survives hardware failure at that box —
+      not fire, ransomware, or "I deleted the wrong folder."</dd>
+
+    <dt id="backup">Backup</dt>
+    <dd>A separate, recoverable copy of data, ideally independent of the live
+      system. Survives mistakes, malware, and disasters that wipe the primary.
+      <span class="eg">A mirror of two disks in one NAS is redundancy, not a backup.</span></dd>
+
+    <dt id="3-2-1">3-2-1 rule</dt>
+    <dd>Keep <b>3</b> copies of important data, on <b>2</b> different kinds of
+      media, with <b>1</b> copy off-site. Baseline recommended by
+      <a href="https://www.cisa.gov/audiences/small-and-medium-businesses/secure-your-business/back-up-business-data" target="_blank" rel="noopener">CISA</a>.
+      <span class="eg">Primary NAS + external drive + cloud/offsite = classic home shape.</span></dd>
+
+    <dt id="raid">RAID</dt>
+    <dd>Combining multiple disks into one logical volume for capacity and/or
+      redundancy. Traditional RAID protects against a dead drive; it does
+      <em>not</em> detect silent corruption, and it is not a backup.</dd>
+
+    <dt id="bit-rot">Bit rot</dt>
+    <dd>Silent data corruption: a drive is still "healthy," but bits flipped
+      (age, cosmic rays, firmware bugs). Without checksums you may not notice
+      until you open a file years later.</dd>
+
+    <dt id="zfs">ZFS</dt>
+    <dd>A combined filesystem + volume manager with end-to-end
+      <a href="#checksum">checksums</a>. On a redundant pool it can
+      <a href="#self-healing">self-heal</a> corrupt blocks. Primary home
+      platform for this course: TrueNAS (OpenZFS).</dd>
+
+    <dt id="checksum">Checksum</dt>
+    <dd>A fingerprint of a data block. ZFS stores one with every block and
+      verifies it on every read. Mismatch = corruption detected.</dd>
+
+    <dt id="self-healing">Self-healing</dt>
+    <dd>When a checksum fails and a good copy still exists (mirror / RAIDZ),
+      ZFS rewrites the bad block from the good one — automatically.</dd>
+
+    <dt id="scrub">Scrub</dt>
+    <dd>A scheduled full read of the pool to verify every checksum. Catches
+      rarely-read corrupt blocks early. TrueNAS schedules monthly scrubs by
+      default.</dd>
+
+    <dt id="pool">Pool (zpool)</dt>
+    <dd>The top-level ZFS storage container. Built from one or more
+      <a href="#vdev">vdevs</a>. Lose a whole vdev → lose the pool.</dd>
+
+    <dt id="vdev">vdev</dt>
+    <dd>A group of disks that provides one stripe of capacity/redundancy
+      (mirror, RAIDZ1/2/3, or stripe). Topology is chosen at create time and is
+      hard to change later — plan before you buy.</dd>
+
+    <dt id="raidz">RAIDZ1 / RAIDZ2 / RAIDZ3</dt>
+    <dd>ZFS parity layouts. The number is how many disks you can lose per vdev
+      without losing data. Home sweet spot is often RAIDZ2 (survive two failures).
+      <span class="eg">RAIDZ1 is discouraged for large modern drives — long rebuild windows.</span></dd>
+
+    <dt id="mirror">Mirror</dt>
+    <dd>Two (or more) disks holding identical data. Great random IOPS; costs 50%
+      capacity on a two-way mirror. Prefer for VMs/databases; RAIDZ2 often better
+      for bulk media.</dd>
+
+    <dt id="snapshot">Snapshot</dt>
+    <dd>A cheap, instant point-in-time view of a dataset (thanks to copy-on-write).
+      Great for "oops, deleted that" recovery on the same pool — still not an
+      off-site backup until you <a href="#replication">replicate</a> it elsewhere.</dd>
+
+    <dt id="replication">Replication</dt>
+    <dd>Sending ZFS snapshots to another pool (another machine or off-site).
+      Turns local history into a real second/third copy.</dd>
+
+    <dt id="resilver">Resilver</dt>
+    <dd>Rebuilding a replaced disk by copying only used blocks from remaining
+      redundancy. Faster than classic RAID rebuilds, but still a danger window —
+      especially on large drives.</dd>
+  </dl>
+
+  <div class="lesson-nav">
+    <a href="../lessons/0004-raid-is-not-a-backup.html">← Lesson 4</a>
+    <a href="networking-glossary.html">Networking glossary</a>
+  </div>
+</div>
+</body>
+</html>

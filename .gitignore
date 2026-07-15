@@ -1,0 +1,19 @@
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+*~
+
+# Editors / agents
+.idea/
+.vscode/
+.cursor/
+.codegraph/
+
+# Env / secrets (none expected, but never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
