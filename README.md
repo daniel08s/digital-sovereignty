@@ -10,6 +10,8 @@ Lessons are short, concepts-first HTML pages with retrieval quizzes. They track
 a concrete mission (see [`MISSION.md`](MISSION.md)), not a generic “learn
 networking” syllabus.
 
+Using Matt Pocock's [/teach](https://github.com/mattpocock/skills/blob/main/skills/productivity/teach/SKILL.md) skill.
+
 ## Open the course
 
 Start here (open in a browser):
