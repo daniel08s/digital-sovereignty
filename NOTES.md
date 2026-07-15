@@ -68,8 +68,8 @@ Working notes on how the learner wants to be taught and things to keep in mind.
 2. Public exposure & remote access (WireGuard) ✓
 3. DNS & network-wide ad blocking (AdGuard Home) ✓ concepts
 4. Storage & data reliability
-   - 4: RAID ≠ backup + 3-2-1 + why ZFS ← current
-   - 5: Pool layouts (mirror vs RAIDZ) & drive counts
+   - 4: RAID ≠ backup + 3-2-1 + why ZFS ✓ concepts
+   - 5: Pool layouts (mirror vs RAIDZ) & drive counts ← current
    - later: hardware pick + backup tool for the off-site leg
 5. Compute host + the *arr stack on Docker Compose (Jellyfin, Sonarr, etc.)
 6. (Optional) network segmentation / IoT isolation (requested — see above)

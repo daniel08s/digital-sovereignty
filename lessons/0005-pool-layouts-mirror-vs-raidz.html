@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 5 — Pool Layouts: Mirror vs RAIDZ</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Lesson 5 · Storage &amp; data reliability · builds on <a href="0004-raid-is-not-a-backup.html">Lesson 4</a></p>
+  <h1>Pool layouts: mirror vs RAIDZ</h1>
+  <p class="lead">You know redundancy is not a backup. Now the decision that
+  locks in for years: how the disks inside your NAS
+  <a href="../reference/storage-glossary.html#pool" class="term">pool</a>
+  are grouped. Wrong layout means destroy-and-rebuild later. Right layout means
+  capacity, fault tolerance, and performance that match your mission
+  (photos, documents, a media library).</p>
+
+  <div class="meta">
+    <span>~14 min</span>
+    <span>Concept</span>
+    <span>Win: pick mirror vs RAIDZ2 for your workload, and a sensible drive count</span>
+  </div>
+
+  <h2>Pool → vdevs → disks</h2>
+  <p>A ZFS pool is built from one or more
+  <a href="../reference/storage-glossary.html#vdev" class="term">vdevs</a>.
+  Each vdev is a group of disks with a chosen topology (mirror, RAIDZ, …).
+  The pool stripes data across its vdevs. Critical rule from the
+  <a href="https://cdn.truenas.com/docs/references/zfsprimer/" target="_blank" rel="noopener">TrueNAS ZFS Primer</a>:</p>
+
+  <div class="callout warn">
+    <h3>Lose a whole vdev → lose the pool</h3>
+    <p style="margin-bottom:0;">Redundancy lives <em>inside</em> each vdev, not
+    as a magic pool-wide safety net. A six-disk RAIDZ2 vdev can lose two disks.
+    Add a single non-redundant disk as a new vdev “for more space,” lose that one
+    disk, and the <em>entire</em> pool is gone. Never do that.</p>
+  </div>
+
+  <div class="netmap">
+    <div class="node lan"><div class="n-title">Pool (zpool)</div><div class="n-sub">one storage container your datasets live on</div></div>
+    <div class="connector"></div>
+    <div class="leaf-row">
+      <div class="leaf hi">vdev A<br><span style="font-weight:400">e.g. RAIDZ2 × 6</span></div>
+      <div class="leaf">vdev B <em>(optional)</em><br><span style="font-weight:400">same topology</span></div>
+    </div>
+  </div>
+  <p>Topology is chosen when you create the vdev. You can often
+  <em>add</em> another vdev later, or replace disks with larger ones, but you
+  cannot casually turn a mirror into RAIDZ2. Plan before you click Create
+  (<a href="https://truenasguide.com/posts/zfs-pool-design-raidz-vs-mirrors/" target="_blank" rel="noopener">RAIDZ vs Mirrors — home NAS</a>).</p>
+
+  <h2>Two families: mirror and RAIDZ</h2>
+  <table>
+    <tr><th></th><th><a href="../reference/storage-glossary.html#mirror" class="term">Mirror</a></th><th><a href="../reference/storage-glossary.html#raidz" class="term">RAIDZ1 / Z2 / Z3</a></th></tr>
+    <tr><td>Idea</td><td>Identical copies on 2+ disks</td><td>Data + parity across the vdev</td></tr>
+    <tr><td>Survive how many dead disks?</td><td>N−1 in that mirror (2-way → 1)</td><td>1 / 2 / 3 per vdev (Z1 / Z2 / Z3)</td></tr>
+    <tr><td>Usable capacity (rough)</td><td>50% (2-way)</td><td>(N − parity) / N of raw</td></tr>
+    <tr><td>Random IOPS</td><td>Scales with number of mirror vdevs</td><td>~one disk’s IOPS per vdev</td></tr>
+    <tr><td>Best for</td><td>VMs, databases, lots of small random I/O</td><td>Bulk media, photos, large sequential files</td></tr>
+    <tr><td><a href="../reference/storage-glossary.html#resilver" class="term">Resilver</a> stress</td><td>Mostly reads the surviving twin — fast</td><td>Reads all surviving disks in the vdev</td></tr>
+  </table>
+  <p>The
+  <a href="https://www.truenas.com/wp-content/uploads/2023/11/ZFS_Storage_Pool_Layout_White_Paper_November_2023.pdf" target="_blank" rel="noopener">TrueNAS ZFS Storage Pool Layout</a>
+  white paper puts the same trade-off formally: for an N-wide RAIDZ with parity
+  level <em>p</em>, space efficiency is (N−p)/N, and random IOPS stay roughly
+  those of a <em>single</em> drive per vdev. Streaming throughput scales with
+  (N−p). Mirrors trade capacity for IOPS that grow as you add pairs.</p>
+
+  <h3>Capacity you can sketch on a napkin</h3>
+  <p>Ignore padding and the “don’t fill past ~80%” rule for a second — just
+  parity math:</p>
+  <table>
+    <tr><th>Layout</th><th>Example (8&nbsp;TB disks)</th><th>Rough usable</th></tr>
+    <tr><td>2-way mirror × 1</td><td>2 disks</td><td>~8 TB (50%)</td></tr>
+    <tr><td>RAIDZ1 × 4</td><td>4 disks, 1 parity</td><td>~24 TB (75%)</td></tr>
+    <tr><td>RAIDZ2 × 6</td><td>6 disks, 2 parity</td><td>~32 TB (~67%)</td></tr>
+    <tr><td>RAIDZ2 × 8</td><td>8 disks, 2 parity</td><td>~48 TB (75%)</td></tr>
+  </table>
+  <p>Real usable is a bit less (metadata, reserved space, fill ceiling). Use a
+  capacity calculator before buying — but this napkin math is enough to compare
+  layouts.</p>
+
+  <h2>What your mission should lean toward</h2>
+  <p>Your success criteria: photos, documents, and a media library on hardware
+  you control. That workload is mostly <em>large sequential</em> reads/writes —
+  not a hypervisor full of VMs.</p>
+
+  <div class="callout aha">
+    <h3>Default recommendation for this course</h3>
+    <p style="margin-bottom:0;"><b>One RAIDZ2 vdev, about 6–8 disks wide.</b>
+    Survive two failures, keep ~⅔–¾ of raw capacity, excellent for bulk media.
+    Prefer mirrors only if the NAS’s main job becomes VMs / databases / heavy
+    random IOPS
+    (<a href="https://truenasguide.com/posts/zfs-pool-design-raidz-vs-mirrors/" target="_blank" rel="noopener">home NAS guide</a>;
+    Primer: mirrors favoured for large uncacheable random read loads).</p>
+  </div>
+
+  <h3>Why not RAIDZ1?</h3>
+  <p>RAIDZ1 survives only one disk failure. While a dead disk is being
+  resilvered, every remaining disk is under heavy read load. On multi-terabyte
+  drives that window is long — a second failure (or unrecoverable read error)
+  during rebuild can kill the vdev. The Primer explicitly warns against RAIDZ1
+  for drives over about 1&nbsp;TiB; modern home drives are far larger. For
+  sovereignty-grade data: start at RAIDZ2.</p>
+
+  <h3>Why not a 12-wide monster?</h3>
+  <p>Wider RAIDZ2 looks efficient on paper. Resilver time stretches into days,
+  IOPS stay ~one disk, and the blast radius of “something goes wrong mid-rebuild”
+  grows. TrueNAS guidance: prefer roughly 3–9 disks per vdev; beyond that, add
+  <em>another</em> vdev of the same type rather than one ultra-wide stripe
+  (<a href="https://cdn.truenas.com/docs/references/zfsprimer/" target="_blank" rel="noopener">ZFS Primer — Disk number</a>).</p>
+
+  <h3>Four-bay reality check</h3>
+  <p>If you only have four bays: RAIDZ2 × 4 is honest (50% usable, two-disk
+  survival). Two 2-way mirrors also use 50% but favour IOPS. RAIDZ1 × 4 buys
+  capacity at the cost of a single-failure budget — only if you already treat
+  3-2-1 backups as non-negotiable (you should anyway).</p>
+
+  <div class="callout">
+    <h3>Still not a backup</h3>
+    <p style="margin-bottom:0;">RAIDZ2 that survives two dead drives still
+    fails the fire / ransomware / <code>rm -rf</code> tests from
+    <a href="0004-raid-is-not-a-backup.html">Lesson 4</a>. Layout chooses
+    <em>how</em> redundancy works. 3-2-1 still chooses whether you can recover.</p>
+  </div>
+
+  <div class="quiz-block">
+    <p class="kicker">Check yourself · recall, don't peek</p>
+
+    <div class="q" data-correctmsg="Right — redundancy is per vdev; lose one whole vdev and the pool is gone."
+                   data-wrongmsg="See 'Pool → vdevs → disks.' The pool stripes across vdevs; each vdev carries its own fault tolerance.">
+      <p class="q-stem">1. What happens if you lose an entire vdev?</p>
+      <button class="opt">Only that vdev’s files disappear</button>
+      <button class="opt" data-correct="true">The whole pool is lost with it</button>
+      <button class="opt">ZFS silently rebuilds from RAM</button>
+      <button class="opt">Scrubs restore the missing disks</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Yes — bulk media wants capacity + sequential throughput; RAIDZ2 fits."
+                   data-wrongmsg="See 'What your mission should lean toward.' Photos/media = RAIDZ2; mirrors shine for VM/database IOPS.">
+      <p class="q-stem">2. Best default for a home media + photo NAS?</p>
+      <button class="opt">One stripe of non-redundant disks</button>
+      <button class="opt">Many tiny mirrors for max IOPS</button>
+      <button class="opt" data-correct="true">One RAIDZ2 vdev about 6–8 wide</button>
+      <button class="opt">RAIDZ1 only, widest possible vdev</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Correct — long rebuilds raise the chance of a second failure mid-resilver."
+                   data-wrongmsg="See 'Why not RAIDZ1?' Large drives mean long resilvers; one parity disk is a thin safety margin.">
+      <p class="q-stem">3. Why avoid RAIDZ1 on large modern drives?</p>
+      <button class="opt">RAIDZ1 cannot store movie files</button>
+      <button class="opt">Mirrors are always half as safe</button>
+      <button class="opt">TrueNAS forbids fewer than twelve</button>
+      <button class="opt" data-correct="true">Long rebuilds risk a second failure</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Exactly — six disks minus two parity ≈ four disks of capacity (≈32 TB of 8 TB)."
+                   data-wrongmsg="Napkin math: usable ≈ (N − parity) × disk size. RAIDZ2 parity = 2, so 6 − 2 = 4 disk-equivalents.">
+      <p class="q-stem">4. Six 8&nbsp;TB disks in RAIDZ2: rough usable?</p>
+      <button class="opt">About 16 TB (two disks only)</button>
+      <button class="opt">About 48 TB (full raw sum)</button>
+      <button class="opt" data-correct="true">About 32 TB (four disk-equivalents)</button>
+      <button class="opt">About 8 TB (one disk only)</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="source-box">
+    <p class="kicker">Read this next (primary source)</p>
+    <p><a href="https://www.truenas.com/wp-content/uploads/2023/11/ZFS_Storage_Pool_Layout_White_Paper_November_2023.pdf" target="_blank" rel="noopener">ZFS Storage Pool Layout</a>
+    (TrueNAS / iXsystems white paper). Focus on: vdev types, (N−p)/N efficiency,
+    and how IOPS scale with <em>number of vdevs</em>, not width alone. Pair with
+    the Primer’s short “ZFS Redundancy and RAID” section for the home-sized
+    “don’t go past ~9–12 disks per vdev” caution.</p>
+  </div>
+
+  <div class="ask-teacher">
+    <b>I'm your teacher — ask me anything.</b> Good follow-ups: <em>I only have
+    a 4-bay chassis — which layout? Two RAIDZ2 vdevs of 6 vs one of 12? When
+    would I split media and VMs into two pools? Does RAIDZ expansion let me
+    upgrade parity later? What drive sizes / brands should I shortlist next?</em>
+    Ask in the chat.
+  </div>
+
+  <h2>Where your mission lives on this map</h2>
+  <p>Every goal is a place on the network (or storage) you can point to.
+  You are here on the path:</p>
+  <table class="course-map">
+    <tr><th>Mission goal</th><th>Lives at…</th><th>Covered in</th></tr>
+    <tr><td>Read your network map</td><td>ISP router → Flint 2 → LAN</td><td><a href="0001-read-your-network-map.html">Lesson 1 — Read your own network map</a></td></tr>
+    <tr><td>Understand the two-router chain</td><td>Flint WAN as guest; stateful NAT</td><td><a href="0001a-how-two-routers-chain.html">Lesson 1a — How two routers chain together</a></td></tr>
+    <tr><td>Reach homelab from outside</td><td>WireGuard + one port-forward</td><td><a href="0002-getting-home-from-outside.html">Lesson 2 — Getting home from outside</a></td></tr>
+    <tr><td>Block ads &amp; tracking</td><td>AdGuard Home DNS on the Flint 2</td><td><a href="0003-blocking-ads-network-wide.html">Lesson 3 — Blocking ads &amp; tracking network-wide</a></td></tr>
+    <tr><td>Store data reliably</td><td>3-2-1 backups + ZFS integrity</td><td><a href="0004-raid-is-not-a-backup.html">Lesson 4 — RAID is not a backup</a></td></tr>
+    <tr class="here"><td>Pick pool layout &amp; drives</td><td>ZFS vdevs (mirror / RAIDZ)</td><td><a href="0005-pool-layouts-mirror-vs-raidz.html">Lesson 5 — Pool layouts: mirror vs RAIDZ</a></td></tr>
+    <tr><td>Media center (*arr + Jellyfin)</td><td>Compute host on the LAN</td><td>later</td></tr>
+  </table>
+
+  <div class="lesson-nav">
+    <a href="0004-raid-is-not-a-backup.html">← Lesson 4</a>
+    <a href="../reference/storage-glossary.html">Storage glossary</a>
+    <span>Next: hardware pick + off-site backup tool (later)</span>
+  </div>
+</div>
+</body>
+</html>
