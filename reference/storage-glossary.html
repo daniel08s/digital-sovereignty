@@ -96,11 +96,75 @@
     <dd>Rebuilding a replaced disk by copying only used blocks from remaining
       redundancy. Faster than classic RAID rebuilds, but still a danger window —
       especially on large drives.</dd>
+
+    <dt id="cmr">CMR (conventional magnetic recording)</dt>
+    <dd>HDD tracks sit side-by-side without overlapping. Predictable random
+      writes. <b>This is what you want for OpenZFS / TrueNAS pools.</b>
+      Sometimes labelled PMR. Always verify by exact model datasheet.</dd>
+
+    <dt id="smr">SMR (shingled magnetic recording)</dt>
+    <dd>Tracks overlap like roof shingles for higher density. Rewriting one
+      track forces rewriting neighbours — terrible under ZFS resilver /
+      copy-on-write load. Avoid for RAIDZ and mirrors.</dd>
+
+    <dt id="dm-smr">Device-managed SMR</dt>
+    <dd>SMR that pretends to be a normal disk. Firmware hides zones behind a
+      cache. Can look fine until heavy writes empty the cache, then throughput
+      collapses. Still avoid for ZFS.</dd>
+
+    <dt id="zoned-storage">Zoned storage device</dt>
+    <dd>Disk divided into zones that must be written sequentially
+      (host-managed SMR HDDs, NVMe ZNS SSDs). Needs zone-aware software.
+      OpenZFS / TrueNAS do <em>not</em> support these as pool members today —
+      do not buy them for a home RAIDZ2 NAS.</dd>
+
+    <dt id="sata">SATA</dt>
+    <dd>Common consumer/NAS disk interface. Default for home TrueNAS data
+      disks. SATA drives also work when plugged into a SAS HBA.</dd>
+
+    <dt id="sas">SAS</dt>
+    <dd>Enterprise disk interface. Needs a SAS HBA; SAS disks will not work in
+      a plain SATA motherboard port. Useful in dense server chassis; usually
+      overkill (and pricier/louder) for a home media NAS.</dd>
+
+    <dt id="it-mode">IT mode / JBOD</dt>
+    <dd>HBA setting that passes each disk through to the OS. Required for ZFS:
+      ZFS must see and manage the raw disks. Do not present a hardware RAID
+      volume to TrueNAS.</dd>
+
+    <dt id="hba">HBA (host bus adapter)</dt>
+    <dd>A controller card (often Broadcom/LSI SAS) that attaches many disks.
+      For TrueNAS, flash to IT/Target mode so disks appear individually — not as
+      a hardware RAID array.</dd>
+
+    <dt id="ecc">ECC RAM</dt>
+    <dd>Memory that detects and corrects single-bit errors. Strongly recommended
+      with ZFS so a RAM bit flip is less likely to be written as “valid” data.
+      Requires a CPU + motherboard pair that both support ECC.</dd>
+
+    <dt id="ram-arc">ARC</dt>
+    <dd>ZFS Adaptive Replacement Cache — the main read cache in RAM. More RAM
+      usually means a hotter working set stays in memory. This is why TrueNAS
+      wants more RAM than a “dumb” file share.</dd>
+
+    <dt id="boot-device">Boot device</dt>
+    <dd>Separate SSD (TrueNAS docs: ≥20&nbsp;GB) that holds the OS and boot
+      environments. Not part of the data pool. Avoid USB sticks for production
+      boot media.</dd>
+
+    <dt id="direct-play">Direct play</dt>
+    <dd>Media client plays the file without the server re-encoding. Cheap for
+      the NAS. Goal when your TVs/phones already understand the library’s codecs.</dd>
+
+    <dt id="transcode">Transcode</dt>
+    <dd>Server re-encodes video on the fly for a client. Needs CPU muscle or
+      (preferably) GPU hardware acceleration (Intel QSV, NVIDIA NVENC, AMD
+      VA-API, …). Decide GPU presence when buying the host if Jellyfin shares it.</dd>
   </dl>
 
   <div class="lesson-nav">
-    <a href="../lessons/0004-raid-is-not-a-backup.html">← Lesson 4</a>
-    <a href="../lessons/0005-pool-layouts-mirror-vs-raidz.html">Lesson 5 →</a>
+    <a href="../lessons/0006-drive-hardware-cmr-sata.html">← Lesson 6</a>
+    <a href="../lessons/0007-nas-host-hardware.html">Lesson 7 →</a>
     <a href="networking-glossary.html">Networking glossary</a>
   </div>
 </div>

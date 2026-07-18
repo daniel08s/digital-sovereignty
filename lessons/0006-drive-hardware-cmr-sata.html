@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 6 — Drive Hardware: CMR, Zoned Storage, SATA vs SAS</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Lesson 6 · Storage &amp; data reliability · builds on <a href="0005-pool-layouts-mirror-vs-raidz.html">Lesson 5</a></p>
+  <h1>Drive hardware: CMR, zoned storage, SATA vs SAS</h1>
+  <p class="lead">You know to aim for a
+  <a href="../reference/storage-glossary.html#raidz" class="term">RAIDZ2</a>
+  vdev. Now the disks themselves. Two shopping questions decide whether that
+  pool stays healthy under
+  <a href="../reference/storage-glossary.html#resilver" class="term">resilver</a>
+  stress: how the platters are written (CMR vs zoned/SMR), and which cable
+  protocol you use (SATA vs SAS).</p>
+
+  <div class="meta">
+    <span>~12 min</span>
+    <span>Concept</span>
+    <span>Win: reject zoned/SMR for ZFS RAIDZ2; default to CMR SATA NAS drives</span>
+  </div>
+
+  <h2>What “zoned storage” actually means</h2>
+  <p>A
+  <a href="../reference/storage-glossary.html#zoned-storage" class="term">zoned storage device</a>
+  divides the disk into <em>zones</em>. Inside a zone, writes must go in order
+  (sequential) — like filling a notebook page top-to-bottom, not scribbling
+  anywhere. That model powers host-managed
+  <a href="../reference/storage-glossary.html#smr" class="term">SMR</a>
+  hard drives (ZBC/ZAC) and NVMe
+  <a href="https://zonedstorage.io/docs/introduction/zns" target="_blank" rel="noopener">Zoned Namespaces (ZNS)</a>.</p>
+  <p>Why vendors like it: denser platters or cheaper flash firmware. Why it
+  fights ZFS: OpenZFS expects a normal random-access block device. Copy-on-write,
+  metadata updates, and resilvers scatter writes. A host-managed zoned disk will
+  not behave like a regular drive unless the filesystem speaks the zone protocol
+  — and OpenZFS / TrueNAS do not.</p>
+
+  <div class="callout warn">
+    <h3>RAIDZ2 + zoned / host-managed SMR? No.</h3>
+    <p style="margin-bottom:0;">Do not put host-managed zoned devices in a
+    TrueNAS / OpenZFS pool. They need special zone-aware software; ZFS is not
+    that software today. Community guidance is blunt: HM-SMR “will not work with
+    TrueNAS or ZFS”
+    (<a href="https://forums.truenas.com/t/not-accepted-add-support-for-smr-shingled-magnetic-recording-drives/65824" target="_blank" rel="noopener">TrueNAS feature request — not accepted</a>).</p>
+  </div>
+
+  <h2>The sneakier cousin: device-managed SMR</h2>
+  <p>Some drives are
+  <a href="../reference/storage-glossary.html#smr" class="term">SMR</a>
+  but hide it. Firmware presents a fake “normal” disk
+  (<a href="../reference/storage-glossary.html#dm-smr" class="term">device-managed SMR</a>).
+  The OS thinks it can write anywhere; under the hood the drive rewrites whole
+  zones. Quiet day-to-day use can look fine — until a resilver or heavy write
+  empties the drive’s small CMR cache and throughput collapses.</p>
+  <p><a href="https://www.servethehome.com/wd-red-smr-vs-cmr-tested-avoid-red-smr/" target="_blank" rel="noopener">ServeTheHome</a>
+  measured this on a WD Red 4&nbsp;TB SMR model vs CMR peers in a FreeNAS RAIDZ
+  rebuild scenario: SMR is a poor match for the workload your RAIDZ2 pool will
+  hit when a disk dies. iXsystems / TrueNAS advice matches the measurement:
+  avoid SMR for ZFS.</p>
+
+  <div class="callout aha">
+    <h3>Buy this instead</h3>
+    <p style="margin-bottom:0;"><b><a href="../reference/storage-glossary.html#cmr" class="term">CMR</a>
+    (conventional magnetic recording)</b> — also called PMR. Tracks sit
+    side-by-side; random writes stay predictable. Check the <em>exact model
+    number</em> on the datasheet before you pay. Marketing words like “NAS” or
+    “Red” are not enough (the WD Red SMR episode taught that lesson industry-wide).</p>
+  </div>
+
+  <table>
+    <tr><th>Technology</th><th>Looks like?</th><th>In your RAIDZ2 pool?</th></tr>
+    <tr><td>CMR / PMR</td><td>Normal HDD</td><td>Yes — this is the target</td></tr>
+    <tr><td>Device-managed SMR</td><td>Normal HDD (lies a bit)</td><td>No — resilver / write cliffs</td></tr>
+    <tr><td>Host-managed SMR / ZNS</td><td>Zoned block device</td><td>No — OpenZFS not zone-aware</td></tr>
+  </table>
+
+  <h2>SATA vs SAS: which cable for a home NAS?</h2>
+  <p><a href="../reference/storage-glossary.html#sata" class="term">SATA</a>
+  and
+  <a href="../reference/storage-glossary.html#sas" class="term">SAS</a>
+  are <em>interfaces</em> — how the drive talks to the motherboard or HBA — not
+  “better RAID.” Both can carry CMR disks. For your mission (bulk media, photos,
+  documents on a home box), the
+  <a href="https://cdn.truenas.com/docs/references/zfsprimer/" target="_blank" rel="noopener">TrueNAS ZFS Primer</a>
+  framing still holds: ZFS wants commodity disks it controls directly, not a
+  hardware RAID card doing clever things.</p>
+
+  <table>
+    <tr><th></th><th>SATA</th><th>SAS</th></tr>
+    <tr><td>Home media / photo NAS</td><td>Default choice</td><td>Usually overkill</td></tr>
+    <tr><td>$ / TB</td><td>Better</td><td>Worse (new)</td></tr>
+    <tr><td>Noise / heat / power</td><td>Gentler (typical NAS HDDs)</td><td>Often louder / hotter (esp. 10k/15k spinners)</td></tr>
+    <tr><td>Need special controller?</td><td>Motherboard SATA ports fine</td><td>Needs a SAS HBA</td></tr>
+    <tr><td>Plug compatibility</td><td>Works on SATA <em>and</em> SAS HBAs</td><td>SAS disks need SAS — not a SATA port</td></tr>
+  </table>
+
+  <div class="callout">
+    <h3>Course default</h3>
+    <p style="margin-bottom:0;"><b>CMR SATA “NAS” drives</b> for the RAIDZ2
+    data vdev. Skip SAS unless you already have a SAS backplane/HBA and a clear
+    reason (cheap used enterprise CMR stock you verified, dense chassis that
+    only speaks SAS, etc.). Never buy “zoned” / host-managed SMR / ZNS for this
+    pool. If you need more ports than the board has, use an HBA in
+    <a href="../reference/storage-glossary.html#it-mode" class="term">IT / JBOD mode</a>
+    so ZFS still sees each disk — not a hardware RAID volume
+    (<a href="https://cdn.truenas.com/docs/references/zfsprimer/" target="_blank" rel="noopener">Primer</a>).</p>
+  </div>
+
+  <h3>One-line shopping checklist</h3>
+  <ol>
+    <li>Layout from Lesson 5 locked (e.g. RAIDZ2 × 6–8).</li>
+    <li>Same capacity CMR disks; verify CMR on the model’s datasheet.</li>
+    <li>SATA interface unless your chassis forces SAS.</li>
+    <li>No hardware RAID — passthrough / IT mode only.</li>
+    <li>Still plan the 3-2-1 off-site copy from
+      <a href="0004-raid-is-not-a-backup.html">Lesson 4</a>.</li>
+  </ol>
+
+  <div class="quiz-block">
+    <p class="kicker">Check yourself · recall, don't peek</p>
+
+    <div class="q" data-correctmsg="Right — OpenZFS expects random-access disks; host-managed zones are a different API."
+                   data-wrongmsg="See 'What zoned storage actually means.' Host-managed zoned / HM-SMR is not supported for TrueNAS ZFS pools.">
+      <p class="q-stem">1. Host-managed zoned disk in RAIDZ2?</p>
+      <button class="opt">Yes — zones boost parity rebuilds</button>
+      <button class="opt" data-correct="true">No — OpenZFS is not zone-aware</button>
+      <button class="opt">Yes — only if the vdev is wide</button>
+      <button class="opt">No — unless you enable SMR mode</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Yes — CMR keeps write behaviour predictable under ZFS resilver load."
+                   data-wrongmsg="See 'Buy this instead.' For ZFS you want CMR/PMR, not SMR or ZNS.">
+      <p class="q-stem">2. Which recording type for a ZFS pool?</p>
+      <button class="opt">Any SMR labelled as a NAS drive</button>
+      <button class="opt">Host-managed zones for density</button>
+      <button class="opt" data-correct="true">CMR verified by exact model</button>
+      <button class="opt">ZNS flash for every data vdev</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Correct — home bulk storage defaults to CMR SATA; SAS is optional enterprise tooling."
+                   data-wrongmsg="See 'SATA vs SAS.' For a home media NAS, SATA is the sensible default.">
+      <p class="q-stem">3. Default interface for a home media NAS?</p>
+      <button class="opt">SAS only, never SATA disks</button>
+      <button class="opt">NVMe ZNS for every spinner</button>
+      <button class="opt" data-correct="true">SATA CMR drives on the board</button>
+      <button class="opt">Hardware RAID with SAS cache</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Exactly — SATA disks can ride a SAS HBA; SAS disks need SAS, not a SATA port."
+                   data-wrongmsg="See the compatibility row: SATA→SAS HBA works; SAS disk→SATA port does not.">
+      <p class="q-stem">4. Which plug combo is valid?</p>
+      <button class="opt">SAS disk into a plain SATA port</button>
+      <button class="opt" data-correct="true">SATA disk into a SAS HBA port</button>
+      <button class="opt">ZNS disk into any SATA cable</button>
+      <button class="opt">SMR disk into RAIDZ with no risk</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="source-box">
+    <p class="kicker">Read this next (primary source)</p>
+    <p><a href="https://www.servethehome.com/wd-red-smr-vs-cmr-tested-avoid-red-smr/" target="_blank" rel="noopener">WD Red SMR vs CMR Tested</a>
+    (ServeTheHome). Focus on: what device-managed SMR hides, and why a RAIDZ
+    resilver is exactly the workload that exposes it. Pair with the
+    <a href="https://zonedstorage.io/docs/introduction/zns" target="_blank" rel="noopener">Zoned Storage / ZNS intro</a>
+    so “zoned device” means sequential-write zones in your head — not a magic
+    faster NAS disk.</p>
+  </div>
+
+  <div class="ask-teacher">
+    <b>I'm your teacher — ask me anything.</b> Good follow-ups: <em>Which CMR
+    model families should I shortlist at my budget? Do I need ECC RAM for
+    TrueNAS? What about a spare / hot spare disk? Boot drive SSD size? When
+    would used enterprise SAS CMR drives make sense?</em>
+    Ask in the chat.
+  </div>
+
+  <h2>Where your mission lives on this map</h2>
+  <p>Every goal is a place on the network (or storage) you can point to.
+  You are here on the path:</p>
+  <table class="course-map">
+    <tr><th>Mission goal</th><th>Lives at…</th><th>Covered in</th></tr>
+    <tr><td>Read your network map</td><td>ISP router → Flint 2 → LAN</td><td><a href="0001-read-your-network-map.html">Lesson 1 — Read your own network map</a></td></tr>
+    <tr><td>Understand the two-router chain</td><td>Flint WAN as guest; stateful NAT</td><td><a href="0001a-how-two-routers-chain.html">Lesson 1a — How two routers chain together</a></td></tr>
+    <tr><td>Reach homelab from outside</td><td>WireGuard + one port-forward</td><td><a href="0002-getting-home-from-outside.html">Lesson 2 — Getting home from outside</a></td></tr>
+    <tr><td>Block ads &amp; tracking</td><td>AdGuard Home DNS on the Flint 2</td><td><a href="0003-blocking-ads-network-wide.html">Lesson 3 — Blocking ads &amp; tracking network-wide</a></td></tr>
+    <tr><td>Store data reliably</td><td>3-2-1 backups + ZFS integrity</td><td><a href="0004-raid-is-not-a-backup.html">Lesson 4 — RAID is not a backup</a></td></tr>
+    <tr><td>Pick pool layout</td><td>ZFS vdevs (mirror / RAIDZ)</td><td><a href="0005-pool-layouts-mirror-vs-raidz.html">Lesson 5 — Pool layouts: mirror vs RAIDZ</a></td></tr>
+    <tr class="here"><td>Choose drive hardware</td><td>CMR SATA disks (not zoned/SMR)</td><td><a href="0006-drive-hardware-cmr-sata.html">Lesson 6 — Drive hardware: CMR, zoned, SATA vs SAS</a></td></tr>
+    <tr><td>Choose NAS host hardware</td><td>Board / CPU / RAM / HBA / boot SSD</td><td><a href="0007-nas-host-hardware.html">Lesson 7 — NAS host hardware</a></td></tr>
+    <tr><td>Pick NAS OS &amp; app home</td><td>TrueNAS vs Linux; where *arr runs</td><td>later</td></tr>
+    <tr><td>Media center (*arr + Jellyfin)</td><td>Compute host on the LAN</td><td>later</td></tr>
+  </table>
+
+  <div class="lesson-nav">
+    <a href="0005-pool-layouts-mirror-vs-raidz.html">← Lesson 5</a>
+    <a href="../reference/storage-glossary.html">Storage glossary</a>
+    <a href="0007-nas-host-hardware.html">Lesson 7 →</a>
+  </div>
+</div>
+</body>
+</html>

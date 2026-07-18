@@ -69,8 +69,15 @@ Working notes on how the learner wants to be taught and things to keep in mind.
 3. DNS & network-wide ad blocking (AdGuard Home) ✓ concepts
 4. Storage & data reliability
    - 4: RAID ≠ backup + 3-2-1 + why ZFS ✓ concepts
-   - 5: Pool layouts (mirror vs RAIDZ) & drive counts ← current
-   - later: hardware pick + backup tool for the off-site leg
+   - 5: Pool layouts (mirror vs RAIDZ) & drive counts ✓ concepts
+   - 6: Drive hardware (CMR not zoned/SMR; SATA vs SAS) ✓ concepts
+   - 7: NAS host hardware (board/CPU/RAM/HBA/boot) ← current
+     Correction (learner pushback): do NOT park Jellyfin hardware-transcode
+     implications. GPU/iGPU is a buy-now host decision; only Jellyfin config /
+     Docker device flags wait for the media-stack lesson. Lesson 7 §4a updated.
+   - next: NAS OS & where apps live (TrueNAS vs Linux + Docker) — separate
+     lesson by design; do not merge into host-hardware
+   - later: concrete model shortlist / chassis + backup tool for off-site leg
 5. Compute host + the *arr stack on Docker Compose (Jellyfin, Sonarr, etc.)
 6. (Optional) network segmentation / IoT isolation (requested — see above)
 7. (Optional) k8s/Talos/NixOS as advanced re-platforming

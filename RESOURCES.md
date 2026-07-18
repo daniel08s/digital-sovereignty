@@ -66,6 +66,25 @@ lessons is drawn from here, not from parametric guesses.
   layout (RAIDZ2, 6–8 wide is the home sweet spot).
 - [ServeTheHome](https://www.servethehome.com/)
   Trusted hardware reviews (mini PCs, NAS, drives). Use for: choosing hardware.
+- [WD Red SMR vs CMR Tested — ServeTheHome](https://www.servethehome.com/wd-red-smr-vs-cmr-tested-avoid-red-smr/)
+  Measured FreeNAS RAIDZ resilver impact of device-managed SMR vs CMR. Use for:
+  Lesson 6 — why “NAS” branding is not enough; verify CMR by model.
+- [Zoned Storage / NVMe ZNS intro — zonedstorage.io](https://zonedstorage.io/docs/introduction/zns)
+  Primary explainer of the zoned model (sequential-write zones; HM-SMR + ZNS).
+  Use for: Lesson 6 — what a “zoned storage device” is, and why it is not a
+  drop-in ZFS disk.
+- [TrueNAS: SMR support not accepted](https://forums.truenas.com/t/not-accepted-add-support-for-smr-shingled-magnetic-recording-drives/65824)
+  Official posture: SMR / host-managed zoned drives are not a supported ZFS
+  path. Use for: confirming “don’t buy zoned/SMR for RAIDZ2.”
+- [Drive options for TrueNAS — Starline](https://www.starline.de/en/magazine/technical-articles/disk-drive-options-for-truenas-server)
+  SATA vs SAS vs SSD trade-offs for OpenZFS servers. Use for: Lesson 6 home
+  default (SATA for capacity; SAS when you need enterprise IOPS / chassis).
+- [TrueNAS Hardware Guide (official)](https://www.truenas.com/docs/scale/gettingstarted/tnhardwareguide/)
+  Primary source for non-disk host choices: RAM sizing, ECC, HBA vs hardware
+  RAID, boot device, PSU/UPS, CPU notes. Use for: Lesson 7+.
+- [Jellyfin — Hardware Acceleration](https://jellyfin.org/docs/general/post-install/transcoding/hardware-acceleration/)
+  Official HWA methods (QSV, NVENC, VA-API, …) and vendor table. Use for:
+  Lesson 7 host GPU fork; media-stack lesson for configuration details.
 
 ### Backups (3-2-1)
 - [CISA: Back Up Business Data](https://www.cisa.gov/audiences/small-and-medium-businesses/secure-your-business/back-up-business-data)

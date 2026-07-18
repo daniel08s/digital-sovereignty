@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 7 — NAS Host Hardware: Board, CPU, RAM, Controllers</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Lesson 7 · Storage &amp; data reliability · builds on <a href="0006-drive-hardware-cmr-sata.html">Lesson 6</a></p>
+  <h1>NAS host hardware: board, CPU, RAM, controllers</h1>
+  <p class="lead">Disks and pool layout are chosen. The box around them still
+  matters: motherboard, CPU, RAM, how disks attach, and a separate boot drive.
+  This lesson is the shopping checklist for that host — not the OS or the
+  *arr apps (those get their own lessons).</p>
+
+  <div class="meta">
+    <span>~13 min</span>
+    <span>Concept</span>
+    <span>Win: know the five host decisions that protect a home ZFS NAS</span>
+  </div>
+
+  <div class="callout">
+    <h3>Why OS/software is separate</h3>
+    <p style="margin-bottom:0;">Hardware answers “can ZFS see healthy disks and
+    enough RAM?” Software answers “TrueNAS vs plain Linux, where do Jellyfin and
+    Sonarr run?” Mixing them overloads working memory. Finish the host checklist
+    here; next storage lesson will pick the NAS OS and where apps live.</p>
+  </div>
+
+  <h2>Five decisions that actually matter</h2>
+  <p>From the official
+  <a href="https://www.truenas.com/docs/scale/gettingstarted/tnhardwareguide/" target="_blank" rel="noopener">TrueNAS Hardware Guide</a>
+  — compressed for a home media/photo mission:</p>
+
+  <table>
+    <tr><th>Decision</th><th>Home default</th><th>Why</th></tr>
+    <tr><td><a href="../reference/storage-glossary.html#ram-arc" class="term">RAM</a></td><td>16&nbsp;GB floor; 32&nbsp;GB if apps share the box</td><td>ZFS caches reads in RAM (ARC); apps need their own slice</td></tr>
+    <tr><td><a href="../reference/storage-glossary.html#ecc" class="term">ECC RAM</a></td><td>Prefer if board/CPU allow</td><td>Catches bit flips in memory before they hit the pool</td></tr>
+    <tr><td>Disk attach</td><td>Onboard SATA if enough ports; else HBA in <a href="../reference/storage-glossary.html#it-mode" class="term">IT mode</a></td><td>ZFS must see each disk; never hardware RAID volumes</td></tr>
+    <tr><td>Boot device</td><td>Small SSD (≥20&nbsp;GB), not a data disk</td><td>OS + boot environments stay off the pool</td></tr>
+    <tr><td>CPU / board</td><td>Modest x86_64; enough SATA/PCIe; quiet 24/7 capable</td><td>Checksum/compress work; not a gaming CPU chase</td></tr>
+    <tr><td>Media on this box?</td><td>Decide before buying CPU/board (see §4)</td><td>Hardware transcode needs an iGPU/dGPU you can actually enable</td></tr>
+  </table>
+
+  <h2>1. RAM first (then ECC)</h2>
+  <p>TrueNAS’s documented minimum is 8&nbsp;GB; that boots a lab box, not a
+  comfortable home NAS with media apps. The Hardware Guide’s rule of thumb:
+  at least 8&nbsp;GB for basic use with up to eight drives, then more as you add
+  disks, clients, apps, or VMs. For your mission (files + later Jellyfin/*arr
+  on or beside the NAS), treat <b>16&nbsp;GB as the practical floor</b> and
+  <b>32&nbsp;GB as the comfortable target</b>.</p>
+  <p><a href="../reference/storage-glossary.html#ecc" class="term">ECC</a>
+  is strongly recommended: interference can flip a bit in RAM; without ECC that
+  bad bit can be written and checksummed as if it were truth. Official nuance
+  (worth remembering): many home systems run non-ECC successfully, but ECC is
+  another integrity layer — and it <em>does</em> constrain which CPU/board pairs
+  you can buy
+  (<a href="https://www.truenas.com/docs/scale/gettingstarted/tnhardwareguide/" target="_blank" rel="noopener">Hardware Guide — ECC</a>).
+  If budget forces non-ECC, do not skip the 3-2-1 backups from
+  <a href="0004-raid-is-not-a-backup.html">Lesson 4</a>.</p>
+
+  <div class="callout aha">
+    <h3>Board shopping tip</h3>
+    <p style="margin-bottom:0;">Want ECC? Verify the <em>pair</em>: CPU model
+    <em>and</em> chipset/manual must both list ECC / ECC UDIMM support. A “server
+    looking” board without matching ECC CPU support is just expensive non-ECC.</p>
+  </div>
+
+  <h2>2. How disks connect (motherboard vs HBA)</h2>
+  <p>Small builds (roughly your 6–8 bay RAIDZ2): onboard SATA is fine if you
+  have enough <em>6&nbsp;Gbps</em> ports. Many boards mix slow 3&nbsp;Gbps and
+  fast 6&nbsp;Gbps ports — use the fast ones for data disks
+  (<a href="https://www.truenas.com/docs/scale/gettingstarted/tnhardwareguide/" target="_blank" rel="noopener">Hardware Guide — controllers</a>).</p>
+  <p>Need more ports than the board has? Add a Broadcom/LSI-class
+  <a href="../reference/storage-glossary.html#hba" class="term">HBA</a>
+  flashed to <a href="../reference/storage-glossary.html#it-mode" class="term">IT / Target mode</a>
+  so each disk is passed through. Community classics: LSI 9207/9300-class cards
+  (often cheap used). If a card only speaks hardware RAID, avoid it or force
+  true JBOD/passthrough — ZFS already is your RAID
+  (<a href="https://cdn.truenas.com/docs/references/zfsprimer/" target="_blank" rel="noopener">ZFS Primer</a>).</p>
+
+  <div class="callout warn">
+    <h3>Hardware RAID is the wrong friend</h3>
+    <p style="margin-bottom:0;">RAID cards can hide SMART data, serials, and
+    real disk health — or lie with a write cache. For TrueNAS, passthrough beats
+    “RAID-5 on the card.”</p>
+  </div>
+
+  <h2>3. Boot drive ≠ data pool</h2>
+  <p>Install the OS on its own SSD (official minimum ~20&nbsp;GB; bigger leaves
+  room for boot environments). Do not carve the boot volume out of your RAIDZ2
+  data disks. Avoid USB sticks / flaky SATA DOMs for the boot pool — TrueNAS
+  writes enough that cheap USB media often dies early
+  (<a href="https://www.truenas.com/docs/scale/gettingstarted/tnhardwareguide/" target="_blank" rel="noopener">Hardware Guide — boot</a>).</p>
+
+  <h2>4. CPU and motherboard (what to optimise for)</h2>
+  <p>You are not buying a gaming rig. Priorities for this mission:</p>
+  <ul>
+    <li><b>Enough cores for background work</b> — scrubs, compression, later
+      apps. A mid-range modern x86_64 is plenty for file serving.</li>
+    <li><b>AES-NI</b> (almost everything modern has it) if you turn on dataset
+      encryption later.</li>
+    <li><b>SATA count + one free PCIe slot</b> for an HBA if you outgrow onboard
+      ports.</li>
+    <li><b>Quiet, 24/7-friendly board/case/PSU</b> — Gold-rated PSU sized for
+      spin-up of all disks; UPS is wise (graceful shutdown on power loss).</li>
+    <li><b>Optional: IPMI/BMC</b> on server boards for remote power/console —
+      nice, not required for a desk-side home NAS.</li>
+  </ul>
+
+  <h3>4a. Jellyfin on this box? Decide the GPU <em>now</em></h3>
+  <p>Earlier drafts of this course “parked” transcoding until the media lesson.
+  That was wrong for shopping: once the CPU/board is bought, you either have a
+  usable video engine or you don’t. What <em>can</em> wait is Jellyfin’s
+  dashboard settings and Docker device passthrough — not the silicon.</p>
+  <p>Two different jobs get confused:</p>
+  <ul>
+    <li><b><a href="../reference/storage-glossary.html#direct-play" class="term">Direct play</a></b>
+      — the client plays the file as-is. Almost no CPU/GPU work on the NAS.
+      Ideal when TVs/phones understand your codecs.</li>
+    <li><b><a href="../reference/storage-glossary.html#transcode" class="term">Transcode</a></b>
+      — the server re-encodes on the fly (wrong codec, bitrate limit, subtitle
+      burn-in, remote stream). Without a GPU this melts a CPU and wakes the
+      whole house; with one it stays quiet
+      (<a href="https://jellyfin.org/docs/general/post-install/transcoding/hardware-acceleration/" target="_blank" rel="noopener">Jellyfin — Hardware Acceleration</a>).</li>
+  </ul>
+  <p>If Jellyfin (or equivalent) will share this host <em>and</em> you expect
+  any transcoding, pick a platform with a supported accelerator <b>before</b>
+  you buy:</p>
+  <table>
+    <tr><th>Path</th><th>What to buy</th><th>Trade-off</th></tr>
+    <tr><td>Intel iGPU (home favourite)</td><td>CPU with iGPU + board that <em>enables</em> it (not a “CPU-only” server SKU that kills video)</td><td>Quiet, low power; Linux uses QSV / VA-API</td></tr>
+    <tr><td>AMD iGPU / dGPU</td><td>APU or discrete card with VA-API on Linux</td><td>Fine; check Jellyfin’s AMD notes for your gen</td></tr>
+    <tr><td>NVIDIA dGPU</td><td>Low-power card with NVENC (used office GPUs often enough)</td><td>More power/noise/heat; strongest when you need many streams</td></tr>
+    <tr><td>No GPU / “direct play only”</td><td>Any quiet NAS CPU</td><td>Cheapest &amp; quietest — only if clients can play your library native</td></tr>
+  </table>
+  <div class="callout aha">
+    <h3>Course default when media shares the NAS</h3>
+    <p style="margin-bottom:0;">Prefer a <b>modern Intel CPU with an enabled
+    iGPU</b> (Quick Sync / VA-API path). It usually beats “buy a loud discrete
+    GPU for one TV” for a living-room-adjacent box. Still optimise for silence:
+    an iGPU does not excuse a screaming workstation cooler. If media will live
+    on a <em>separate</em> compute host later, the NAS CPU can stay boring —
+    but decide that split <em>before</em> purchasing, not after.</p>
+  </div>
+  <p>Still parked for the media-stack lesson: how many streams you need, HDR
+  tone-map quirks, and exact Jellyfin/Docker flags. Those tune the choice; they
+  don’t erase the need to have <em>some</em> supported GPU in the cart.</p>
+
+  <h2>5. Network and USB (quick)</h2>
+  <p>1&nbsp;GbE is enough to start; 2.5&nbsp;GbE is a cheap upgrade if LAN and
+  clients can use it. Do <b>not</b> put the primary ZFS pool on USB disks —
+  serial-number weirdness and disconnects make USB a backup cable, not a pool
+  cable
+  (<a href="https://www.truenas.com/docs/scale/gettingstarted/tnhardwareguide/" target="_blank" rel="noopener">Hardware Guide</a>).</p>
+
+  <h3>Host checklist (print-friendly)</h3>
+  <ol>
+    <li>Bay count matches Lesson 5 layout (e.g. 6–8 for RAIDZ2).</li>
+    <li>RAM: ≥16&nbsp;GB (32&nbsp;GB if apps share the host); ECC if the pair allows.</li>
+    <li>Enough 6&nbsp;Gbps SATA <em>or</em> IT-mode HBA — no hardware RAID arrays.</li>
+    <li>Separate SSD for boot (≥20&nbsp;GB).</li>
+    <li>CMR SATA data disks from <a href="0006-drive-hardware-cmr-sata.html">Lesson 6</a>.</li>
+    <li>Decent PSU + consider a UPS.</li>
+    <li>If Jellyfin shares this box: iGPU/dGPU path chosen (or explicit “direct play only”).</li>
+    <li>OS install details: next lesson — but the CPU/GPU SKU is decided here.</li>
+  </ol>
+
+  <div class="quiz-block">
+    <p class="kicker">Check yourself · recall, don't peek</p>
+
+    <div class="q" data-correctmsg="Right — ZFS needs RAM for ARC and services; 8 GB only boots, it does not leave headroom for apps."
+                   data-wrongmsg="See 'RAM first.' Official minimum boots; home media use wants more headroom.">
+      <p class="q-stem">1. Practical RAM floor for a home NAS with apps?</p>
+      <button class="opt">Four GB is plenty for ZFS</button>
+      <button class="opt" data-correct="true">Sixteen GB; thirty-two if shared</button>
+      <button class="opt">One GB per movie in the library</button>
+      <button class="opt">Zero — disks cache everything</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Yes — ECC corrects memory bit flips so bad RAM is less likely to poison the pool."
+                   data-wrongmsg="See 'RAM first (then ECC).' ECC protects in-memory bits, not disk failure counts.">
+      <p class="q-stem">2. Main reason to prefer ECC RAM?</p>
+      <button class="opt">It makes SMR drives become CMR</button>
+      <button class="opt">It doubles the usable RAIDZ2 size</button>
+      <button class="opt" data-correct="true">It catches bit flips in memory</button>
+      <button class="opt">It replaces the need for backups</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Correct — IT/JBOD passthrough lets ZFS own each disk; hardware RAID hides health."
+                   data-wrongmsg="See 'How disks connect.' TrueNAS wants raw disks, not a RAID volume from the card.">
+      <p class="q-stem">3. Best way to attach many data disks?</p>
+      <button class="opt">Hardware RAID-5 volume to ZFS</button>
+      <button class="opt">One big USB hub of HDDs</button>
+      <button class="opt" data-correct="true">SATA ports or an IT-mode HBA</button>
+      <button class="opt">Mirror the boot USB stick thrice</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+
+    <div class="q" data-correctmsg="Exactly — OS install details can wait; the iGPU/dGPU SKU must be in the cart now."
+                   data-wrongmsg="See §4a. Jellyfin config waits; whether the CPU has a usable video engine does not.">
+      <p class="q-stem">4. Jellyfin on this NAS — when pick the GPU?</p>
+      <button class="opt">Only after the first movie night fails</button>
+      <button class="opt">Never; ZFS checksums replace transcode</button>
+      <button class="opt" data-correct="true">Before buying the CPU and board</button>
+      <button class="opt">Only inside the HBA flash utility</button>
+      <p class="q-feedback" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="source-box">
+    <p class="kicker">Read this next (primary source)</p>
+    <p><a href="https://www.truenas.com/docs/scale/gettingstarted/tnhardwareguide/" target="_blank" rel="noopener">TrueNAS Hardware Guide</a>
+    (official docs) for RAM/ECC/HBA/boot. For the media-on-NAS fork, read
+    <a href="https://jellyfin.org/docs/general/post-install/transcoding/hardware-acceleration/" target="_blank" rel="noopener">Jellyfin Hardware Acceleration</a>
+    — vendor table (QSV / NVENC / VA-API) only; skip the install flags until
+    the media lesson.</p>
+  </div>
+
+  <div class="ask-teacher">
+    <b>I'm your teacher — ask me anything.</b> Good follow-ups: <em>Will my
+    clients mostly direct-play? Intel iGPU vs a cheap NVIDIA card for two
+    streams? Used enterprise board (no iGPU) vs new consumer ECC+iGPU? Ready
+    for the OS/software lesson?</em>
+    Ask in the chat.
+  </div>
+
+  <h2>Where your mission lives on this map</h2>
+  <p>Every goal is a place on the network (or storage) you can point to.
+  You are here on the path:</p>
+  <table class="course-map">
+    <tr><th>Mission goal</th><th>Lives at…</th><th>Covered in</th></tr>
+    <tr><td>Read your network map</td><td>ISP router → Flint 2 → LAN</td><td><a href="0001-read-your-network-map.html">Lesson 1 — Read your own network map</a></td></tr>
+    <tr><td>Understand the two-router chain</td><td>Flint WAN as guest; stateful NAT</td><td><a href="0001a-how-two-routers-chain.html">Lesson 1a — How two routers chain together</a></td></tr>
+    <tr><td>Reach homelab from outside</td><td>WireGuard + one port-forward</td><td><a href="0002-getting-home-from-outside.html">Lesson 2 — Getting home from outside</a></td></tr>
+    <tr><td>Block ads &amp; tracking</td><td>AdGuard Home DNS on the Flint 2</td><td><a href="0003-blocking-ads-network-wide.html">Lesson 3 — Blocking ads &amp; tracking network-wide</a></td></tr>
+    <tr><td>Store data reliably</td><td>3-2-1 backups + ZFS integrity</td><td><a href="0004-raid-is-not-a-backup.html">Lesson 4 — RAID is not a backup</a></td></tr>
+    <tr><td>Pick pool layout</td><td>ZFS vdevs (mirror / RAIDZ)</td><td><a href="0005-pool-layouts-mirror-vs-raidz.html">Lesson 5 — Pool layouts: mirror vs RAIDZ</a></td></tr>
+    <tr><td>Choose drive hardware</td><td>CMR SATA disks (not zoned/SMR)</td><td><a href="0006-drive-hardware-cmr-sata.html">Lesson 6 — Drive hardware: CMR, zoned, SATA vs SAS</a></td></tr>
+    <tr class="here"><td>Choose NAS host hardware</td><td>Board / CPU / RAM / HBA / boot SSD</td><td><a href="0007-nas-host-hardware.html">Lesson 7 — NAS host hardware</a></td></tr>
+    <tr><td>Pick NAS OS &amp; app home</td><td>TrueNAS vs Linux; where *arr runs</td><td>later</td></tr>
+    <tr><td>Media center (*arr + Jellyfin)</td><td>Compute host on the LAN</td><td>later</td></tr>
+  </table>
+
+  <div class="lesson-nav">
+    <a href="0006-drive-hardware-cmr-sata.html">← Lesson 6</a>
+    <a href="../reference/storage-glossary.html">Storage glossary</a>
+    <span>Next: NAS OS &amp; where apps live (later)</span>
+  </div>
+</div>
+</body>
+</html>
