@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAS Host Shopping Sketch — Storage + Optional Compute</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Reference · Storage · builds on
+    <a href="../lessons/0007-nas-host-hardware.html">Lesson 7</a></p>
+  <h1>Shopping sketch: simple NAS + optional compute box</h1>
+  <p class="lead">Decided direction: keep the NAS as boring storage (no GPU,
+  no transcoding). Optionally add a second machine later for Jellyfin/Immich
+  work — reusing the Crosshair VII there, not as the disk farm.</p>
+
+  <div class="meta">
+    <span>Architecture: split</span>
+    <span>NAS = Cart S</span>
+    <span>Compute later = Cart C (Crosshair)</span>
+  </div>
+
+  <div class="callout aha">
+    <h3>Why this split is strong</h3>
+    <p style="margin-bottom:0;">The NAS stays quiet, full of disks, and easy to
+    reason about (ZFS + shares). Apps that burn CPU/GPU (transcode, Immich ML)
+    land on a separate host that can mount the library over the LAN. Failure
+    domains stay clean: rebuild apps without touching the pool.</p>
+  </div>
+
+  <h2>Where the Crosshair should go</h2>
+  <p><b>Prefer:</b> hold the <b>ROG Crosshair VII Hero</b> for the future
+  <em>compute</em> box (Cart C). Put a quieter, simpler board in the NAS
+  (Cart S). Gaming boards are noisy and non-ECC; they are a better match for
+  “occasional media brain” than for a 24/7 disk chassis.</p>
+  <p><b>Avoid:</b> building the NAS on the Crosshair “for now,” then hoping to
+  move that board to compute later. Migrating a live ZFS pool to new hardware
+  is doable but stressful — better not to trap your reuse candidate under six
+  spinning disks.</p>
+
+  <h2>Cart S — Simple NAS (buy / build now)</h2>
+  <p><b>Job:</b> RAIDZ2 pool, SMB/NFS shares, snapshots. Jellyfin may
+  <em>read</em> files from here later, but this box does not transcode.
+  Direct-play clients only from the NAS’s point of view.</p>
+
+  <table>
+    <tr><th>Item</th><th>Pick</th><th>Notes</th></tr>
+    <tr><td>Board</td><td>Quiet used/new board with <b>≥6× SATA</b> (or 4 + IT-mode HBA)</td><td><b>Not</b> the Crosshair if you want Cart C later. ECC-capable used Xeon/EPYC or AM4 Pro board is a bonus, not required</td></tr>
+    <tr><td>CPU</td><td>Modest modern x86 (e.g. used Xeon E3 / Ryzen 5 non-G)</td><td>File serving + scrub; no iGPU required</td></tr>
+    <tr><td>GPU</td><td><b>None</b></td><td>Headless</td></tr>
+    <tr><td>RAM</td><td>16&nbsp;GB floor; <b>32&nbsp;GB</b> if Immich DB ever sits here</td><td>Prefer ECC if the pair allows
+      (<a href="https://www.truenas.com/docs/scale/gettingstarted/tnhardwareguide/" target="_blank" rel="noopener">TrueNAS Hardware Guide</a>)</td></tr>
+    <tr><td>Boot SSD</td><td>≥32&nbsp;GB separate</td><td>Not in the pool
+      (<a href="storage-glossary.html#boot-device" class="term">boot device</a>)</td></tr>
+    <tr><td>Data disks</td><td><b>6×</b> identical CMR SATA → RAIDZ2
+      (leaning: <b>4&nbsp;TB Exos recert</b>)</td><td>
+      <a href="../lessons/0005-pool-layouts-mirror-vs-raidz.html">Lesson 5</a> /
+      <a href="../lessons/0006-drive-hardware-cmr-sata.html">Lesson 6</a> ·
+      priced in <a href="nas-host-build-options.html">build options</a></td></tr>
+    <tr><td>HBA</td><td>Only if onboard SATA &lt; 6</td><td>IT mode only — no hardware RAID
+      (<a href="storage-glossary.html#it-mode" class="term">IT mode</a>)</td></tr>
+    <tr><td>Case / PSU / UPS</td><td>6+ bay quiet case; Gold PSU; UPS</td><td>Optimise for 24/7 silence</td></tr>
+  </table>
+
+  <div class="callout">
+    <h3>Apps on Cart S?</h3>
+    <p style="margin-bottom:0;">OS decision still comes next. Pattern that
+    matches this architecture: NAS runs storage (+ maybe lightweight shares).
+    Jellyfin / *arr / Immich prefer Cart C when it exists. Until then you can
+    direct-play from the NAS with a tiny Jellyfin and <em>transcoding disabled</em>
+    — or wait and only stand up media apps on compute.</p>
+  </div>
+
+  <h2>Cart C — Compute / transcode (later, reuse Crosshair)</h2>
+  <p><b>Job:</b> Jellyfin (with HWA when needed), Immich ML, *arr stack.
+  Media files live on Cart S; this box mounts them (SMB/NFS) or talks to the
+  NAS API. No big HDD farm required here.</p>
+
+  <table>
+    <tr><th>Item</th><th>Pick</th><th>Notes</th></tr>
+    <tr><td>Board</td><td><b>Your Crosshair VII Hero</b></td><td>Update BIOS for Ryzen 5000 if needed</td></tr>
+    <tr><td>CPU</td><td>Ryzen <b>5600G / 5700G</b> (iGPU) <em>or</em> 5600 + later dGPU</td><td>G-SKU = free VA-API path for rare transcodes
+      (<a href="https://jellyfin.org/docs/general/post-install/transcoding/hardware-acceleration/" target="_blank" rel="noopener">Jellyfin HWA</a>)</td></tr>
+    <tr><td>GPU</td><td>iGPU first; <b>not</b> GTX 650</td><td>Kepler too old for NVENC / Immich CUDA</td></tr>
+    <tr><td>RAM</td><td>32&nbsp;GB DDR4 dual-channel</td><td>Apps + iGPU share RAM</td></tr>
+    <tr><td>Boot / app SSD</td><td>256&nbsp;GB+ NVMe</td><td>OS + Docker; library stays on NAS</td></tr>
+    <tr><td>Data HDDs</td><td>Optional / none</td><td>Do not rebuild RAIDZ2 here</td></tr>
+    <tr><td>Case</td><td>Small / quiet is enough</td><td>No 6-bay requirement</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <h3>Spare parts still sidelined</h3>
+    <p style="margin-bottom:0;">FX-6100 + 970A: not Cart S or Cart C.
+    GTX 650: drawer. WD Blue 1&nbsp;TB: scratch only — never the RAIDZ2 vdev.</p>
+  </div>
+
+  <h2>Side-by-side</h2>
+  <table>
+    <tr><th></th><th>Cart S (NAS now)</th><th>Cart C (compute later)</th></tr>
+    <tr><td>Crosshair?</td><td>No — reserve it</td><td>Yes</td></tr>
+    <tr><td>Disks</td><td>6× CMR RAIDZ2</td><td>Boot SSD (+ optional cache)</td></tr>
+    <tr><td>GPU</td><td>None</td><td>iGPU / future dGPU</td></tr>
+    <tr><td>Transcode</td><td>Off / N/A</td><td>On when clients need it</td></tr>
+    <tr><td>Immich / *arr</td><td>Prefer not</td><td>Yes</td></tr>
+  </table>
+
+  <h2>Buy order</h2>
+  <ol>
+    <li><b>Now:</b> Cart S — case, PSU, quiet board+CPU, RAM, boot SSD, 6× CMR, UPS.</li>
+    <li><b>Park:</b> Crosshair in anti-static bag for Cart C.</li>
+    <li><b>Next lesson track:</b> NAS OS + how shares work.</li>
+    <li><b>Later:</b> Cart C CPU/RAM/SSD; point Jellyfin at NAS library over LAN.</li>
+  </ol>
+
+  <p>Concrete host tiers (low / mid / high, ECC and non-ECC) with the Exos
+    disk assumption: <a href="nas-host-build-options.html">NAS host build options</a>.</p>
+
+  <div class="lesson-nav">
+    <a href="../lessons/0007-nas-host-hardware.html">← Lesson 7</a>
+    <a href="nas-host-build-options.html">Build options</a>
+    <a href="storage-glossary.html">Storage glossary</a>
+  </div>
+</div>
+</body>
+</html>

@@ -63,6 +63,32 @@ Working notes on how the learner wants to be taught and things to keep in mind.
   & traffic rules, when to isolate IoT, and mDNS reflectors. Ties back to
   Lesson 1 (subnets) and Lesson 2 (stateful firewall).
 
+## Learner spare parts (assessed 2026-07-19)
+Inventory disclosed:
+- Mobos: AMD 970A-G46 (AM3+); ROG Crosshair VII Hero (AM4 X470)
+- CPU: AMD FX-6100 (AM3+ only — does **not** fit Crosshair VII)
+- GPU: GTX 650 2GB (Kepler; Immich CUDA needs CC ≥5.2; Jellyfin wants Maxwell+)
+- HDD: 1× WD Blue 1TB SATA (desktop; not a RAIDZ2 pool)
+
+Verdict for mission NAS:
+- **Do not** build production ZFS NAS on 970A + FX-6100 (power, age, no useful
+  iGPU path, weak for 24/7 + Immich/Jellyfin).
+- Crosshair VII is salvageable **only with a new AM4 Ryzen** (board has no ECC;
+  accept non-ECC + strong 3-2-1). Prefer a G-series APU if Jellyfin shares the
+  box; otherwise plan direct-play-heavy or a modern low-power dGPU later.
+- GTX 650: skip for Jellyfin HWA and Immich ML accel — too old.
+- WD Blue 1TB: lab/scratch only; buy CMR NAS disks for the real pool.
+
+Workload note: 1–2 concurrent Jellyfin streams → dedicated GPU often unnecessary
+if clients mostly direct-play; Immich GPU is optional (CPU ML is slower, fine
+for personal libraries).
+
+**Architecture decision (2026-07-19):** Simple NAS now (no GPU / no transcode).
+Optional separate compute host later for Jellyfin/Immich — **reserve Crosshair
+VII for that compute box**, not for the disk NAS. See
+`reference/nas-host-shopping-sketch.html` (Cart S now, Cart C later).
+Old Cart A/B “all-in-one” sketch superseded by this split.
+
 ## Sequencing plan (rough, revisable)
 1. Networking foundations (read your own map) ✓
 2. Public exposure & remote access (WireGuard) ✓
@@ -79,5 +105,7 @@ Working notes on how the learner wants to be taught and things to keep in mind.
      lesson by design; do not merge into host-hardware
    - later: concrete model shortlist / chassis + backup tool for off-site leg
 5. Compute host + the *arr stack on Docker Compose (Jellyfin, Sonarr, etc.)
+   — planned as **separate machine** (Cart C / Crosshair), mounting library
+   from NAS; not required on day one of Cart S
 6. (Optional) network segmentation / IoT isolation (requested — see above)
 7. (Optional) k8s/Talos/NixOS as advanced re-platforming

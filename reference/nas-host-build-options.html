@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAS Host Build Options — Cart S Tiers</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Reference · Storage · builds on
+    <a href="../lessons/0007-nas-host-hardware.html">Lesson 7</a> ·
+    <a href="nas-host-shopping-sketch.html">Shopping sketch</a></p>
+  <h1>Cart S build options (concrete parts)</h1>
+  <p class="lead">Host tiers for the quiet RAIDZ2 NAS — with a fixed EU disk
+    price so totals are honest. Crosshair stays reserved for Cart&nbsp;C.
+    Currency: <b>euro (€)</b>, EU retail / EU used market (incl. typical VAT).</p>
+
+  <div class="meta">
+    <span>Pool: 6× 4&nbsp;TB Exos recert @ €180</span>
+    <span>RAIDZ2 ≈ 14&nbsp;TB usable</span>
+    <span>Shop inside Europe (no US import)</span>
+  </div>
+
+  <div class="callout warn">
+    <h3>Where the old “$510 pool” came from — and why it was wrong for you</h3>
+    <p style="margin-bottom:0;">That figure assumed ~$85/drive on US
+      manufacturer-recert channels (e.g. ServerPartDeals-class stock). That is
+      <b>not</b> an EU shelf price, and importing those drives fights your
+      constraint. Your find — <b>€180 each</b> inside Europe — is the planning
+      number below: <b>6 × €180 = €1,080</b> for the pool alone.</p>
+  </div>
+
+  <div class="callout aha">
+    <h3>Why the bill feels large (EU edition)</h3>
+    <p style="margin-bottom:0;">At €180/drive the disks are ~two-thirds of an
+      ECC Mid all-in build. The host is still only a few hundred euros; ECC Mid
+      vs Non-ECC Mid is mostly the DIMMs (~€30–40), not a second platform.</p>
+  </div>
+
+  <h2>Disk plan: 6× 4&nbsp;TB Seagate Exos (recert, EU)</h2>
+  <p>Enterprise Exos SATA CMR remains a valid Cart&nbsp;S choice (real CMR,
+    high workload rating). Recert in Europe is simply much closer to new-drive
+    money than US fire-sale listings. RAIDZ2 on six identical 4&nbsp;TB drives
+    → roughly <b>~14&nbsp;TB usable</b>.</p>
+
+  <table>
+    <tr><th>Check</th><th>What to verify</th></tr>
+    <tr><td>CMR</td><td>Exos lines are CMR — still confirm the exact model datasheet</td></tr>
+    <tr><td>Interface</td><td>SATA 6&nbsp;Gb/s (motherboard SATA or SAS HBA in IT mode)</td></tr>
+    <tr><td>Match</td><td>Same capacity (ideally same model) for all six in the vdev</td></tr>
+    <tr><td>Warranty</td><td>EU recert often 1–2&nbsp;years — read the seller terms</td></tr>
+    <tr><td>Noise / heat</td><td>7200&nbsp;RPM enterprise — usually louder than IronWolf / Red Plus</td></tr>
+    <tr><td><b>Price used here</b></td><td><b>€180 / drive → €1,080 for six</b> (your cheapest EU find)</td></tr>
+  </table>
+
+  <div class="callout">
+    <h3>Worth a quick compare before locking Exos</h3>
+    <p style="margin-bottom:0;">At €180 for 4&nbsp;TB recert, check EU street
+      for <b>new</b> 4&nbsp;TB IronWolf / Red Plus / N300 and for larger CMR
+      (8–12&nbsp;TB) €/TB. Sometimes new NAS CMR or a bigger drive wins on
+      warranty + noise even if list price looks higher. Totals below stay on
+      your Exos number so host tiers stay comparable.</p>
+  </div>
+
+  <h2>Non-ECC host tiers (EU €)</h2>
+  <table>
+    <tr><th></th><th>Low</th><th>Mid</th><th>High</th></tr>
+    <tr>
+      <td><b>Idea</b></td>
+      <td>Used tower + IT-mode HBA</td>
+      <td>Quiet new AM4 build</td>
+      <td>More RAM / nicer case</td>
+    </tr>
+    <tr>
+      <td>Board + CPU</td>
+      <td>Used OptiPlex/HP MT (i5-8500 class) ~€150</td>
+      <td>ASRock B550M Pro4 + Ryzen 5 5600 ~€200</td>
+      <td>B550/X570 + 2.5GbE + Ryzen 5600/5700X ~€280</td>
+    </tr>
+    <tr>
+      <td>RAM</td>
+      <td>32&nbsp;GB DDR4 non-ECC ~€50</td>
+      <td>32&nbsp;GB DDR4 non-ECC ~€50</td>
+      <td>64&nbsp;GB DDR4 non-ECC ~€110</td>
+    </tr>
+    <tr>
+      <td>Disk attach</td>
+      <td>LSI 9207-8i IT + cables ~€50</td>
+      <td>Onboard 6× SATA</td>
+      <td>Onboard 6–8× SATA</td>
+    </tr>
+    <tr>
+      <td>Boot</td>
+      <td>256&nbsp;GB SSD ~€30</td>
+      <td>256&nbsp;GB NVMe ~€30</td>
+      <td>512&nbsp;GB NVMe ~€50</td>
+    </tr>
+    <tr>
+      <td>Case + PSU</td>
+      <td>Donor chassis + PSU upgrade if needed ~€80</td>
+      <td>Fractal Node 804 + 550&nbsp;W Gold ~€220</td>
+      <td>Define 7 + 650&nbsp;W Gold + quiet fans ~€320</td>
+    </tr>
+    <tr>
+      <td><b>Host subtotal</b></td>
+      <td><b>~€360</b></td>
+      <td><b>~€500</b></td>
+      <td><b>~€760</b></td>
+    </tr>
+    <tr>
+      <td><b>+ Exos pool (€1,080)</b></td>
+      <td><b>~€1,440</b></td>
+      <td><b>~€1,580</b></td>
+      <td><b>~€1,840</b></td>
+    </tr>
+    <tr>
+      <td><b>+ UPS (~€130)</b></td>
+      <td><b>~€1,570</b></td>
+      <td><b>~€1,710</b></td>
+      <td><b>~€1,970</b></td>
+    </tr>
+  </table>
+
+  <h2>ECC host tiers (EU €)</h2>
+  <table>
+    <tr><th></th><th>Low</th><th>Mid (recommended)</th><th>High</th></tr>
+    <tr>
+      <td><b>Idea</b></td>
+      <td>Used Xeon / Supermicro (EU second-hand)</td>
+      <td>Same quiet AM4 path + ECC UDIMMs</td>
+      <td>Rack/workstation board + IPMI</td>
+    </tr>
+    <tr>
+      <td>Board + CPU</td>
+      <td>Supermicro X11SSH-F + Xeon E3-1230 v5/v6 ~€140</td>
+      <td>ASRock B550M Pro4 + Ryzen 5 5600 ~€200</td>
+      <td>ASRock Rack / Supermicro C246–C256 + matched CPU ~€450</td>
+    </tr>
+    <tr>
+      <td>RAM</td>
+      <td>32&nbsp;GB DDR4 ECC UDIMM ~€80</td>
+      <td>32&nbsp;GB DDR4 ECC UDIMM (e.g. Kingston Server Premier) ~€90</td>
+      <td>64&nbsp;GB ECC UDIMM ~€160</td>
+    </tr>
+    <tr>
+      <td>Disk attach</td>
+      <td>Often + 9207-8i IT ~€45</td>
+      <td>Onboard 6× SATA</td>
+      <td>Onboard / board-native</td>
+    </tr>
+    <tr>
+      <td>Boot</td>
+      <td>256&nbsp;GB SSD ~€30</td>
+      <td>256&nbsp;GB NVMe ~€30</td>
+      <td>512&nbsp;GB NVMe ~€50</td>
+    </tr>
+    <tr>
+      <td>Case + PSU</td>
+      <td>Node 804 + 550&nbsp;W Gold ~€220</td>
+      <td>Node 804 + 550&nbsp;W Gold ~€220</td>
+      <td>Define 7 / 8-bay quiet + 650&nbsp;W Gold ~€300</td>
+    </tr>
+    <tr>
+      <td><b>Host subtotal</b></td>
+      <td><b>~€515</b></td>
+      <td><b>~€540</b></td>
+      <td><b>~€960</b></td>
+    </tr>
+    <tr>
+      <td><b>+ Exos pool (€1,080)</b></td>
+      <td><b>~€1,595</b></td>
+      <td><b>~€1,620</b></td>
+      <td><b>~€2,040</b></td>
+    </tr>
+    <tr>
+      <td><b>+ UPS (~€130)</b></td>
+      <td><b>~€1,725</b></td>
+      <td><b>~€1,750</b></td>
+      <td><b>~€2,170</b></td>
+    </tr>
+  </table>
+
+  <div class="callout aha">
+    <h3>ECC Mid vs Non-ECC Mid</h3>
+    <p style="margin-bottom:0;">Same board, same CPU, same case — swap in ECC
+      UDIMMs. Premium is roughly <b>€30–40</b> on the host (tiny next to
+      €1,080 of disks). After install, confirm ECC is active (TrueNAS UI /
+      <span class="mono">edac-util</span> / <span class="mono">dmidecode</span>).</p>
+  </div>
+
+  <h2>Other configurations</h2>
+
+  <h3>N100 6-SATA mini</h3>
+  <p>Low idle watts; host roughly <b>~€450</b>. With your Exos pool + UPS ≈
+    <b>~€1,660</b>. Confirm SATA count and whether that SKU actually supports
+    ECC before paying for it.</p>
+
+  <h3>Phased buy</h3>
+  <p>Buy <b>ECC Mid host + UPS</b> now (~€670). Buy all six identical Exos when
+    you are ready — still plan on ~€1,080 unless an EU seller undercuts €180.
+    Do not mix capacities in one RAIDZ2 vdev.</p>
+
+  <h3>Used Xeon path</h3>
+  <p>Cheapest true ECC on the EU second-hand market; expect fan swaps and
+    verify <b>ECC UDIMM</b> (not RDIMM) for E3 boards. Prefer EU sellers to
+    avoid import/VAT surprises.</p>
+
+  <h2>Default recommendation (EU €)</h2>
+  <table>
+    <tr><th>Item</th><th>Pick</th><th>Est.</th></tr>
+    <tr><td>Case</td><td>Fractal Node 804</td><td>€130</td></tr>
+    <tr><td>PSU</td><td>550&nbsp;W 80+ Gold modular</td><td>€90</td></tr>
+    <tr><td>Board</td><td>ASRock B550M Pro4 (6× SATA, ECC UDIMM listed)</td><td>€90</td></tr>
+    <tr><td>CPU</td><td>Ryzen 5 5600 (no GPU)</td><td>€110</td></tr>
+    <tr><td>RAM</td><td>32&nbsp;GB DDR4 ECC UDIMM</td><td>€90</td></tr>
+    <tr><td>Boot</td><td>256&nbsp;GB NVMe (not in the pool)</td><td>€30</td></tr>
+    <tr><td>Data</td><td>6× 4&nbsp;TB Seagate Exos SATA CMR recert (EU)</td><td><b>€1,080</b></td></tr>
+    <tr><td>UPS</td><td>Line-interactive, spin-up headroom</td><td>€130</td></tr>
+    <tr><td><b>All-in</b></td><td>Quiet ECC Cart S + ~14&nbsp;TB usable</td><td><b>~€1,750</b></td></tr>
+  </table>
+
+  <div class="callout warn">
+    <h3>Still sidelined</h3>
+    <p style="margin-bottom:0;">ROG Crosshair VII Hero → Cart&nbsp;C later.
+      FX-6100 / 970A / GTX 650 / WD Blue 1&nbsp;TB → not the RAIDZ2 vdev.
+      No GPU on Cart&nbsp;S. No US-only HDD mail-order for this cart.</p>
+  </div>
+
+  <h2>Shopping checklist</h2>
+  <ol>
+    <li>Six identical Exos (or other CMR) from an <b>EU</b> seller — datasheet CMR, SATA.</li>
+    <li>Onboard SATA ≥6 <em>or</em> HBA flashed to IT mode (never hardware RAID).</li>
+    <li>Boot SSD separate from the pool.</li>
+    <li>Gold PSU with HDD spin-up margin; UPS.</li>
+    <li>If ECC: CPU <em>and</em> board both list ECC UDIMM; verify after boot.</li>
+    <li>Park the Crosshair for compute; do not trap it under the live pool.</li>
+  </ol>
+
+  <p style="font-size:.85rem;color:var(--ink-soft);">Host lines are EU street
+    estimates (Idealo / Alternate / local class), not quotes. Disk line is your
+    stated floor: €180 × 6. Re-check before buying — HDD prices move.</p>
+
+  <div class="lesson-nav">
+    <a href="nas-host-shopping-sketch.html">← Shopping sketch</a>
+    <a href="storage-glossary.html">Storage glossary</a>
+    <a href="../lessons/0007-nas-host-hardware.html">Lesson 7</a>
+  </div>
+</div>
+</body>
+</html>
